@@ -1,0 +1,52 @@
+C:\Google Drive\0Mestrado Dissertacao\HindcastNOAA 
+com o programa 0hindcast06.py
+
+Para rodar o script DistriProbGeralMk63+.py
+os arquivos extraidos pelo script 0hindcast06.py
+devem estar dentro da pasta \Dados_Hindcast\ e os resultados
+serão colocados dentro da pasta \Dados_Hindcast\0Figuras\
+
+Os arquivos gerados pelo script 0hindcast12.py são 1 arquivo por
+posição de de latitude e longitude. 
+
+O script DistriProbGeralMk63+.py quando rodado por ele proprio, 
+irá listar os arquivos que estão dentro da pasta Dados_Hindcast
+e rodar aquele que escolhido através da variavel CtrlfileNum = 0
+sendo o valor numérico o numero do arquivo na lista de arquivos. 
+Os parametrôs controlam o programa:
+# As variaveis que começam con Ctrl são variavies de controle do programa. Ajuste os valores conforme vontade ou necessario.
+###Ctrl
+CtrlfileNum = 0 #o arquivo que será rodado
+
+CtrlBinClasses = 14 #definição do numero de bins no histograma inicial
+CtrlBinCmult = 1 #multiplica a definição, somente para exibição
+CtrlDirNum = 8 #numero de direções que serão divididos os scatter
+
+#CtrlLimIntegHs = 10 #Limite do valor de Hs na integral para achar o valor E
+#CtrlLimIntegTp = 25 #Limite do valor de Tp na integral para achar o valor E
+CtrlLimMinColetasTpHs = 1 #Na função TpHs, controla quantos valores precisa ter....
+CtrlPolyFitGrau = 1 #
+CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
+
+CtrlLinhas = int(np.sqrt(CtrlBinClasses)) 
+CtrlColunas = int(np.sqrt(CtrlBinClasses))+1 #linhas para gráifco TpHs. 
+
+Print1 = False
+PrintHist3D = False
+PrintTpHs = False
+PrintXiLamb = False
+PrintTpHs3D = False
+PrintSurface = False
+PrintPcolor = True
+
+
+O script MultiCall4+.py é um script que possibilita rodar diversos 
+scripts DistriProbGeralMk63+.py ao mesmo tempo. É necessario setar no
+MultiCall4+.py qual o:
+progName = 'MultiCall4+.py' #nome do script que será 
+CrtlMaxThreadNumbers = 8 #para 8 instancias rodando simultaneamente
+
+Quando o script DistriProbGeralMk63+.py for chamado pelo MultiCall4+.py
+ele irá abrir uma instancia do DistriProbGeralMk63+.py para rodar cada 
+arquivo simultaneamente. O nome do arquivo a ser processado é passado como
+argumento na chamada do arquivo
