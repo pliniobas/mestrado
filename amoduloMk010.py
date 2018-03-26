@@ -38,8 +38,8 @@ import pandas as pd
 
 
 #%%
-import multiprocessing
-from multiprocessing import Process,Pool
+#import multiprocessing
+#from multiprocessing import Process,Pool
 
 class mdc():
     
@@ -55,10 +55,13 @@ class mdc():
         s.fln_H = lognorm(Hscale,Hloc,Hshape) #cria a distribuicao
         s.fln_H_fit = 'xi = %.4f, lambda = %.4f'%(Hscale,np.log(Hshape))
         
+        
         #Criar distribuicao de H Weibull
         Hscale,Hloc,Hshape = weibull_min.fit(H,floc = 0) #fit wei
         s.fwei_H = weibull_min(Hscale,Hloc,Hshape) #cria a distribuicao
         s.fwei_H_fit = 'lambda = %.4f, alpha = %.4f'%(Hscale,Hshape)
+        
+        
 ###############################################################################  
 #        #Trocando o fit da biblio weibull_min por wei
 #        s.fwei_H = wei()
@@ -87,40 +90,94 @@ class mdc():
             s.polydegree = kwargs['polydegree']
             pass
 
+        #determinando o histograma para fazer o scatter.
         s.H_hist_y,s.H_hist_x = np.histogram(H,s.bins,density = True,range = s.rangeH)
         s.H_hist_xM = s.H_hist_x[:-1] + s.H_hist_x[0:2].mean()
         
         s.T_hist_y,s.T_hist_x = np.histogram(T,s.bins,density = True,range = s.rangeT)
         s.T_hist_xM = s.T_hist_x[:-1] + s.T_hist_x[0:2].mean()
         
-        #Separando T condicional a H e calculando os parametros da distribuicao
+                #Separando T condicional a H e calculando os parametros da distribuicao
         dft = pd.DataFrame(dict(H=H,T=T))
         
         ln_param = []
-        wei_param = []        
+        wei_param = []
         
-        for ix,aux in enumerate(s.H_hist_x):
+        # se for imprimir o grafico, mostra o ajuste de Hs em lognormal e weibull
+        if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+            temp = np.linspace(0,max(s.H+1),20)
+            figHs = plt.figure()
+            ax = figHs.add_subplot(111)
+            ax.plot(temp,s.fln_H.cdf(temp),'--',label='ln')
+            ax.plot(temp,s.fwei_H.cdf(temp),':',label='wei')
+            ax.plot(s.H_hist_xM,np.cumsum(s.H_hist_y/np.sum(s.H_hist_y)),'-',label = 'raw')
+            ax.legend()
+            ax.set_title('Fits de Hs com weibull ou lognormal')
+        
+
+       #se for imprimir o grafico (kwargs.has_key('print_cdf')), d e dd sao as colunas e linhas do grafico
+       # determina d e dd que é o tamanho do grafico a ser criado ax.subplot(d,dd,ddd)
+        if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+            dd = 0
+            d = 1
+            while 24 / d > dd:
+                dd = d
+                d += 1
+                pass
+            
+            figlog = plt.figure(figsize=(d*2,dd*2))
+            x = np.linspace(s.rangeT[0],s.rangeT[1],100,endpoint = False)              
+        ddd = 0 ### ddd é a posicao que o grafico vai assumir na matrix definida por d e dd           
+        
+        #circula entre as classes de bins de hs
+        for ix,aux in enumerate(s.H_hist_x): 
+            ddd += 1
+            
             if ix == len(s.H_hist_x) - 1:
                 break
-            temp = dft[np.logical_and(dft.H>s.H_hist_x[ix],dft.H<s.H_hist_x[ix+1])]['T'].values
+            temp = dft[np.logical_and(dft.H>s.H_hist_x[ix],dft.H<s.H_hist_x[ix+1])]['T'].values #dataframe com valores de tp condicionados a hs
             if len(temp) > 50:
                 #lista contem [xi,loc,lamb*e,posicaoX,hs_condicionador]
                 #xi = [0], loc=[1], lamb =[2], xpos = [3]
-                ln_param.append(lognorm.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]]))
+                ln_param.append(lognorm.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição lognormal
                 #a lista contem [lamb,loc,alpha,hs_condicionador]
                 #lambw=[0],loc=[1], alpha=[2], xpos=[3]
-                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]]))
+                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
 
+                #fazendo o print do cdf de cada tp condicionado a hs
+                if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+                    ax = figlog.add_subplot(d,dd,ddd)
+
+                    logtemp = lognorm(ln_param[-1][0],ln_param[-1][1],ln_param[-1][2])
+                    weitemp = weibull_min(wei_param[-1][0],wei_param[-1][1],wei_param[-1][2])
+                    
+                    #print das cumulativas dos histogramas
+                    temp_T_hist_y,temp_T_hist_x = np.histogram(temp,s.bins,density = True,range = s.rangeT)
+                    temp_T_hist_xM = temp_T_hist_x[:-1] + temp_T_hist_x[0:2].mean()
+                    
+                    ax.plot(temp_T_hist_xM,np.cumsum(temp_T_hist_y/np.sum(temp_T_hist_y)),'-',label='hist')
+                                       
+                    #print das cumulativas das funcoes ajustadas
+                    ax.plot(x,logtemp.cdf(x),'--',label = 'ln')
+                    ax.plot(x,weitemp.cdf(x),':',label = 'wei')
+                    ax.legend()
+              
+                    ax.set_title("Classe de Hs %.2f"%s.H_hist_x[ix])
+                    figlog.tight_layout()                    
+                    pass
+                pass
+            pass
+
+
+        
+        
 ###############################################################################
                 #Trocando o fit da biblio weibull_min por wei
 #                w = wei()
 #                w.fit(temp)
 #                wei_param.append((w.lambW,0,w.alphaW)+ tuple([s.H_hist_xM[ix]])) 
 ###############################################################################
-                
-            pass
-        
-        
+
         
         #Criando as funcoes dos parametros de distribuicao
         s.Tfxi = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[0] for aux in ln_param],s.polydegree))
@@ -132,7 +189,7 @@ class mdc():
         s.dl = pd.DataFrame(ln_param)
         s.dw = pd.DataFrame(wei_param)
         
-        
+        #definindo a função de distribuição de Hs
         if kwargs.has_key('tipofH'):
             if kwargs['tipofH'] == 'weibull':
                s.fH = s.fwei_H
@@ -145,7 +202,8 @@ class mdc():
             s.fH = s.fln_H
             s.fHtype = 'lognormal'
             pass
-                
+        
+        #definindo a função de distribuição de Tp condicional ao Hs
         if kwargs.has_key('tipofT'):
             if kwargs['tipofT'] == 'weibull':
                 s.fT = lambda h: weibull_min(s.Tflambw(h),0,s.Tfalphaw(h))
@@ -188,7 +246,7 @@ class mdc():
                 #observar que as posicoes do indice realmente sao [t,h] porque h esta no eixo x
                 pass
             pass
-        dfR = dfR.T
+        #dfR = dfR.T
         return dict(xpos=xpos,ypos=ypos, zvalues = dfR)
         pass
         
@@ -246,9 +304,13 @@ class mdc():
         
         #determinando serie distribuicao conjunta / nataf
         obj_hist = s.pdf_series(s.H,s.T)
+        s.matriz = obj_hist
+#        obj_hist['xpos'] = obj_hist['xpos'][::-1]
+#        obj_hist['ypos'] = obj_hist['ypos'][::-1]
         
         #determinando serie bruta
         seriebruta, xedges, yedges = np.histogram2d(s.H, s.T, bins = s.bins, range=[s.rangeH,s.rangeT], normed=True)
+        seriebruta = seriebruta.T
         xedges = xedges[:-1] + xedges[0:2].mean()
         yedges = yedges[:-1] + yedges[0:2].mean()
         xgrid,ygrid = np.meshgrid(xedges,yedges)
@@ -271,51 +333,81 @@ class mdc():
         levels = np.arange(0.01,0.3,0.03)
         levelsBias = np.arange(-0.11,0.11,0.02)
         
+        
+        
         #iniciando a figura
         fig = plt.figure(figsize=(12,6))
+        
+        ##############################################
         ax = fig.add_subplot(231)
         
         colbar = ax.contour(xgrid,ygrid, seriebruta,cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
+        
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Histograma Densidade Probabilidade\n Serie Bruta')
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+        
+        yticks = obj_hist['zvalues'].index.values.astype(float)
+        yticklabels = ['%.1f'%aux for aux in yticks]
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
+                
+        xticks = obj_hist['zvalues'].columns.values.astype(float)
+        xticklabels = ['%.1f'%aux for aux in xticks]
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+                     
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5,)
         
+        ###############################################
         ax = fig.add_subplot(232)
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'],obj_hist['zvalues'],cmap=cmap2, vmin = 0.001, vmax = 0.3,levels=levels)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Modelo Distribuicao Conjunta\nHs ajustado em %s\nTp ajustado em %s'%(s.fHtype,s.fTtype))
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+        
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
+        
+        
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)
-        
+        ######################################################
         ax = fig.add_subplot(233)
         bias = seriebruta - obj_hist['zvalues']
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'], bias,cmap=cmapbias, vmin = -0.15, vmax = 0.15,levels=levelsBias)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Bias Brutos - MDC')
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)   
         
        
         #plotando series unidas
+        
         ax = fig.add_subplot(234)
         ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
         ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
-        ax.set_title('PDF todas as series "Flat"')
-        ax.set_xlabel('Pontos f(Hs,Tp)')
+        
+        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
+        temp = obj_hist['zvalues'].index.values.astype(float)
+        xticklabels = ['%.1f'%aux for aux in temp]
+        
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+       
+        ax.set_title(u'Secções de Hs em função de Tp')
+        ax.set_xlabel(u'Secções de Tp')
         ax.set_ylabel('Densidade Probabilidade')
         ax.legend()
-        
-            
+
         # =============================================================================
         #  Escrevendo parametros da funcao na figura.       
         # =============================================================================
@@ -412,19 +504,19 @@ class mdc():
         
         return fig
 
-    
+#m = mdc()
+#m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=True)
 
 #%%
 
 # =============================================================================
 # Classe Nataf
 # =============================================================================
-import threading 
-    
-class nataf(threading.Thread):
+   
+class nataf():
     def __init__(s):
 #        scipy.stats.__init__(self)
-        threading.Thread.__init__(s)
+#        threading.Thread.__init__(s)
         pass
     
     def __doc__():
@@ -590,7 +682,7 @@ class nataf(threading.Thread):
                 #observar que as posicoes do indice realmente sao [t,h] porque h esta no eixo x
                 pass
             pass
-        dfR = dfR.T
+        #dfR = dfR.T
         return dict(xpos=xpos,ypos=ypos,zvalues = dfR)
         pass
         
@@ -639,12 +731,18 @@ class nataf(threading.Thread):
         
         #determinando serie distribuicao conjunta / nataf
         obj_hist = s.pdf_series(s.H,s.T)
+        s.matriz = obj_hist
+#        obj_hist['xpos'] = obj_hist['xpos'][::-1]
+#        obj_hist['ypos'] = obj_hist['ypos'][::-1]
         
         #determinando serie bruta
         seriebruta, xedges, yedges = np.histogram2d(s.H, s.T, bins = s.bins, range=[s.rangeH,s.rangeT], normed=True)
+        seriebruta = seriebruta.T
         xedges = xedges[:-1] + xedges[0:2].mean()
         yedges = yedges[:-1] + yedges[0:2].mean()
         xgrid,ygrid = np.meshgrid(xedges,yedges)
+        s.bruta = [seriebruta, xedges, yedges]
+        
         
         #Fazendo o x ticks labels
         xtl = []
@@ -666,44 +764,79 @@ class nataf(threading.Thread):
         
         #iniciando a figura
         fig = plt.figure(figsize=(12,6))
+        
+        ####################################
         ax = fig.add_subplot(231)
         
         colbar = ax.contour(xgrid,ygrid, seriebruta,cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Histograma Densidade Probabilidade\n Serie Bruta')
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+        
+        yticks = obj_hist['zvalues'].index.values.astype(float)
+        yticklabels = ['%.1f'%aux for aux in yticks]
+        
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
+        
+        
+        xticks = obj_hist['zvalues'].columns.values.astype(float)
+        xticklabels = ['%.1f'%aux for aux in xticks]
+        
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+        
+        
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5,)
         
+        #################################
         ax = fig.add_subplot(232)
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'],obj_hist['zvalues'],cmap=cmap2, vmin = 0.001, vmax = 0.3,levels=levels)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Nataf\nHs ajustado em %s\nTp ajustado em %s'%(s.fHtype,s.fTtype))
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+        
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
+        
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)
         
+        #################################
         ax = fig.add_subplot(233)
         bias = seriebruta - obj_hist['zvalues']
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'], bias,cmap=cmapbias, vmin = -0.15, vmax = 0.15,levels=levelsBias)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Bias Brutos - MDC')
-        ax.set_xticks(xgrid[0])
-        ax.set_xticklabels(xtl)
+
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])
+        ax.set_yticks(yticks[::2])
+        ax.set_yticklabels(yticklabels[::2])
+
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)   
         
-       
+               
         #plotando series unidas
+        
+        
         ax = fig.add_subplot(234)
         ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
         ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
-        ax.set_title('PDF todas as series "Flat"')
+        
+        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
+        temp = obj_hist['zvalues'].index.values.astype(float)
+        xticklabels = ['%.1f'%aux for aux in temp]
+        
+        ax.set_xticks(xticks[::2])
+        ax.set_xticklabels(xticklabels[::2])        
+        
+        ax.set_title(u'Secções de Hs em função de Tp')
         ax.set_xlabel('Pontos f(Hs,Tp)')
         ax.set_ylabel('Densidade Probabilidade')
         ax.legend()
@@ -785,7 +918,14 @@ class nataf(threading.Thread):
         
         return fig
     
-
+#    
+#n = nataf()
+#n.fit(H,T,tipofH = aux,tipofT = aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp)
+#
+#fig = n.printContour(filename = DirFileList[CtrlfileNum],
+#                     dirI = direcaofinal[dirInt[dirQuad]['dirI']],
+#                     dirM = direcaofinal[dirInt[dirQuad]['dirM']],
+#                     dirF = direcaofinal[dirInt[dirQuad]['dirF']])
 
 
 #%% Main
@@ -813,11 +953,12 @@ if __name__ == '__main__':
     CtrlPolyFitGrau = 3 
     CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
     CtrlRangeHs = [0,8] #Define o range de 0.1 a x para Hs
-    CtrlRangeTp = [0,16] #Define o range de 0.1 a x para Tp
+    CtrlRangeTp = [0,20] #Define o range de 0.1 a x para Tp
 #    CtrlDistTypeH = ['lognormal','weibull'] # ou so ['lognormal'] ou só ['weibull']
 #    CtrlDistTypeT = ['lognormal','weibull'] # ou so ['lognormal'] ou só ['weibull']
-    CtrlDistTypeH = ['lognormal'] # ou so ['lognormal'] ou só ['weibull']
+    CtrlDistTypeH = ['weibull'] # ou so ['lognormal'] ou só ['weibull']
     CtrlDistTypeT = ['lognormal'] # ou so ['lognormal'] ou só ['weibull']
+    CtrlPrintCDF = True
     CtrlCalcRho = True    
     
     auxTT = 0 #faz com que o mapa so seja plotado uma vez
@@ -943,7 +1084,6 @@ if __name__ == '__main__':
     
 #%%  Exemplo de montagem em serie
 
-
     for aux in CtrlDistTypeH:
         for aux2 in CtrlDistTypeT:
 #            for CtrlDirQuad in xrange(1,CtrlDirNum,1):
@@ -972,7 +1112,8 @@ if __name__ == '__main__':
                     filename =  DirFileList[CtrlfileNum] + '_%s_mdc_%s_%s.jpg'%(dirQuad,aux,aux2)
                     
                     m = mdc()
-                    m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau)
+#                    m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=True)
+                    m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=CtrlPrintCDF)
                     if CtrlCalcRho:
                         m.rho()
                     fig = m.printContour(filename = DirFileList[CtrlfileNum],
@@ -993,8 +1134,11 @@ if __name__ == '__main__':
 
                     n = nataf()
                     n.fit(H,T,tipofH = aux,tipofT = aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp)
+                    
+                                       
                     if CtrlCalcRho:
                         n.rho()
+                        
                     fig = n.printContour(filename = DirFileList[CtrlfileNum],
                                          dirI = direcaofinal[dirInt[dirQuad]['dirI']],
                                          dirM = direcaofinal[dirInt[dirQuad]['dirM']],
@@ -1048,6 +1192,141 @@ if __name__ == '__main__':
 #    
     
     #%%
+#    d = m.matriz
+#    d1 = n.bruta
     sys.exit(10)
     
 
+    
+
+
+
+#%%
+    
+from scipy.stats import norm,weibull_min
+from scipy.special import gamma
+from scipy.optimize import fsolve
+from scipy.integrate import quad
+import numpy as np
+from scipy.optimize import root
+
+class ln():
+   
+    def __doc__(s):
+        print(''' Must import these libraries
+        from scipy.integrate import quad
+        import numpy as np              
+        ''')
+    
+    def __init__ (s,*args):
+        if(len(args)):
+            s.fit(args)
+            pass
+        pass
+    
+    def fit(s,X):
+        s.xi = s.xiLn(X)
+        s.lamb = s.lambLn(X)
+        return s.xi,s.lamb
+    
+    def xiLn(s,X):
+        return np.sqrt(np.log(1 + (X.std() /  X.mean())**2)) # esse é o calculo do parametro xi
+            
+    def lambLn(s,X):
+        return np.log(X.mean()) - 0.5*s.xi**2 #esse é o calculo do parametro lambda
+            
+    def pdf(s,x): #funcao lognormal distribuição
+        return (1/(np.sqrt(2*np.pi)*x*s.xi))*np.exp(-0.5*(((np.log(x)-s.lamb)**2)/(s.xi**2)))
+         
+    def cdf(s,x):
+        return quad(lambda x: s.pdf(x),0,x)[0]
+    pass
+
+
+class wei():
+       
+    def __doc__(s):
+        print(''' Must import these libraries
+        from scipy.special import gamma
+        from scipy.optimize import fsolve
+        from scipy.integrate import quad,nquad
+        import numpy as np              
+        ''')
+        
+    def __init__ (s,*args):
+        if(len(args)):
+            s.fit(args)
+            pass
+            
+    def fit(s,X):
+        s.lambW = s.lambWei(X)
+        s.alphaW = s.alphaWei(X)
+        return s.lambW,s.alphaW
+   
+#    def fitex(s,X):
+#        s.lambW = s.lambWei(X)
+#        s.alphaW = s.alphaWei(X)
+#        return s.alphaW,s.lambW
+    
+    def lambWei(s,X):
+        cofVar = np.nanstd(X)/np.nanmean(X) 
+        lambW = fsolve(lambda y: (np.sqrt(gamma((2/y) + 1) - gamma((1/y) + 1)**2) / gamma((1/y)+1)) - cofVar ,3)
+        return lambW
+    
+    def alphaWei(s,X):
+        cofVar = np.nanstd(X)/np.nanmean(X) 
+        lambW = fsolve(lambda y: (np.sqrt(gamma((2/y) + 1) - gamma((1/y) + 1)**2) / gamma((1/y)+1)) - cofVar ,3)
+        return np.nanmean(X)/gamma(1/lambW + 1)
+
+    def pdf(s,x):
+        return ((x**(s.lambW-1)) / (s.alphaW**s.lambW)) * s.lambW * np.exp(-(x/s.alphaW)**s.lambW)
+
+    def cdf(s,x):
+        return quad(lambda x: s.pdf(x),0,x)[0]
+
+#%%
+                   
+a,b,c = weibull_min.fit(dHT.hs,floc = 0)
+weifloc = weibull_min(a,b,c)
+
+a,b,c = weibull_min.fit(dHT.hs)
+weinorm = weibull_min(a,b,c)
+
+wei2 = wei()
+wei2.fit(dHT.hs)
+
+
+x = np.linspace(0,8,100,endpoint=False)
+
+yl = weifloc.cdf(x)
+yn = weinorm.cdf(x)    
+y2 = [wei2.cdf(aux) for aux in x]
+
+
+
+#%% Criando valores da distribuição ajustada para comparar com valores do scatter dos valores brutos. 
+
+
+z,x = np.histogram(H,bins=CtrlBinClasses*4,range=CtrlRangeHs)
+xm = x[:-1] + (x[1] - x[0])/2
+z,y = np.histogram(T,bins=CtrlBinClasses*4,range=CtrlRangeTp)
+ym = y[:-1] + (y[1] - y[0])/2
+
+
+t0 = time.clock()
+grid = [[m.pdf(ahs,atp) for ahs in xm] for atp in ym]
+df2 = pd.DataFrame(data=grid,columns=xm,index=ym)
+print(time.clock() - t0)
+
+#t0 = time.clock()
+#
+#df = np.zeros([len(xm),len(ym)])
+#df = pd.DataFrame(data=df,columns=xm,index=ym)
+#for ahs in xm:
+#    for atp in ym:
+#        df.loc[atp,ahs] = m.pdf(ahs,atp)
+#        pass
+#
+#print(time.clock() - t0)
+
+#df == df2

@@ -1,0 +1,114 @@
+Weibull minimum continuous random variable.
+
+    As an instance of the `rv_continuous` class, `weibull_min` object inherits from it
+    a collection of generic methods (see below for the full list),
+    and completes them with details specific for this particular distribution.
+    
+    Methods
+    -------
+    ``rvs(c, loc=0, scale=1, size=1, random_state=None)``
+        Random variates.
+    ``pdf(x, c, loc=0, scale=1)``
+        Probability density function.
+    ``logpdf(x, c, loc=0, scale=1)``
+        Log of the probability density function.
+    ``cdf(x, c, loc=0, scale=1)``
+        Cumulative distribution function.
+    ``logcdf(x, c, loc=0, scale=1)``
+        Log of the cumulative distribution function.
+    ``sf(x, c, loc=0, scale=1)``
+        Survival function  (also defined as ``1 - cdf``, but `sf` is sometimes more accurate).
+    ``logsf(x, c, loc=0, scale=1)``
+        Log of the survival function.
+    ``ppf(q, c, loc=0, scale=1)``
+        Percent point function (inverse of ``cdf`` --- percentiles).
+    ``isf(q, c, loc=0, scale=1)``
+        Inverse survival function (inverse of ``sf``).
+    ``moment(n, c, loc=0, scale=1)``
+        Non-central moment of order n
+    ``stats(c, loc=0, scale=1, moments='mv')``
+        Mean('m'), variance('v'), skew('s'), and/or kurtosis('k').
+    ``entropy(c, loc=0, scale=1)``
+        (Differential) entropy of the RV.
+    ``fit(data, c, loc=0, scale=1)``
+        Parameter estimates for generic data.
+    ``expect(func, args=(c,), loc=0, scale=1, lb=None, ub=None, conditional=False, **kwds)``
+        Expected value of a function (of one argument) with respect to the distribution.
+    ``median(c, loc=0, scale=1)``
+        Median of the distribution.
+    ``mean(c, loc=0, scale=1)``
+        Mean of the distribution.
+    ``var(c, loc=0, scale=1)``
+        Variance of the distribution.
+    ``std(c, loc=0, scale=1)``
+        Standard deviation of the distribution.
+    ``interval(alpha, c, loc=0, scale=1)``
+        Endpoints of the range that contains alpha percent of the distribution
+
+    See Also
+    --------
+    weibull_max
+
+    Notes
+    -----
+    The probability density function for `weibull_min` is:
+
+    .. math::
+
+        f(x, c) = c x^{c-1} \exp(-x^c)
+
+    for :math:`x > 0`, :math:`c > 0`.
+
+    `weibull_min` takes ``c`` as a shape parameter.
+
+    The probability density above is defined in the "standardized" form. To shift
+    and/or scale the distribution use the ``loc`` and ``scale`` parameters.
+    Specifically, ``weibull_min.pdf(x, c, loc, scale)`` is identically
+    equivalent to ``weibull_min.pdf(y, c) / scale`` with
+    ``y = (x - loc) / scale``.
+
+    Examples
+    --------
+    >>> from scipy.stats import weibull_min
+    >>> import matplotlib.pyplot as plt
+    >>> fig, ax = plt.subplots(1, 1)
+    
+    Calculate a few first moments:
+    
+    >>> c = 1.79
+    >>> mean, var, skew, kurt = weibull_min.stats(c, moments='mvsk')
+    
+    Display the probability density function (``pdf``):
+    
+    >>> x = np.linspace(weibull_min.ppf(0.01, c),
+    ...                 weibull_min.ppf(0.99, c), 100)
+    >>> ax.plot(x, weibull_min.pdf(x, c),
+    ...        'r-', lw=5, alpha=0.6, label='weibull_min pdf')
+    
+    Alternatively, the distribution object can be called (as a function)
+    to fix the shape, location and scale parameters. This returns a "frozen"
+    RV object holding the given parameters fixed.
+    
+    Freeze the distribution and display the frozen ``pdf``:
+    
+    >>> rv = weibull_min(c)
+    >>> ax.plot(x, rv.pdf(x), 'k-', lw=2, label='frozen pdf')
+    
+    Check accuracy of ``cdf`` and ``ppf``:
+    
+    >>> vals = weibull_min.ppf([0.001, 0.5, 0.999], c)
+    >>> np.allclose([0.001, 0.5, 0.999], weibull_min.cdf(vals, c))
+    True
+    
+    Generate random numbers:
+    
+    >>> r = weibull_min.rvs(c, size=1000)
+    
+    And compare the histogram:
+    
+    >>> ax.hist(r, normed=True, histtype='stepfilled', alpha=0.2)
+    >>> ax.legend(loc='best', frameon=False)
+    >>> plt.show()
+    
+
+    
