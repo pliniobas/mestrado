@@ -305,9 +305,7 @@ class mdc():
         #determinando serie distribuicao conjunta / nataf
         obj_hist = s.pdf_series(s.H,s.T)
         s.matriz = obj_hist
-#        obj_hist['xpos'] = obj_hist['xpos'][::-1]
-#        obj_hist['ypos'] = obj_hist['ypos'][::-1]
-        
+
         #determinando serie bruta
         seriebruta, xedges, yedges = np.histogram2d(s.H, s.T, bins = s.bins, range=[s.rangeH,s.rangeT], normed=True)
         seriebruta = seriebruta.T
@@ -315,25 +313,23 @@ class mdc():
         yedges = yedges[:-1] + yedges[0:2].mean()
         xgrid,ygrid = np.meshgrid(xedges,yedges)
         
-        #Fazendo o x ticks labels
-        xtl = []
-        for aux in xrange(len(xgrid[0])):
-            if aux % 4 == 0:
-                xtl.append('%.1f'%xgrid[0][aux])
-                pass
-            else:
-                xtl.append('')
-                pass
-            pass
+        #passango geral para escala log
+#        xgrid = np.log10(xgrid)
+#        ygrid = np.log10(ygrid)
+#        seriebruta = np.log10(seriebruta)
+#        obj_hist['zvalues'] = np.log10(obj_hist['zvalues'])
+        
+        
             
         #parametros de cores do contour
         cmap2 = cm.get_cmap('jet')
         cmap2.set_under('w')
         cmapbias = cm.get_cmap('seismic')
-        levels = np.arange(0.01,0.3,0.03)
-        levelsBias = np.arange(-0.11,0.11,0.02)
-        
-        
+        levels = np.arange(0.001,0.3,0.01)
+        levelsBias = np.arange(-0.11,0.11,0.001)
+#        levels = np.arange(0.01,0.3,0.03)
+#        levelsBias = np.arange(-0.11,0.11,0.02)
+            
         
         #iniciando a figura
         fig = plt.figure(figsize=(12,6))
@@ -341,7 +337,7 @@ class mdc():
         ##############################################
         ax = fig.add_subplot(231)
         
-        colbar = ax.contour(xgrid,ygrid, seriebruta,cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
+        colbar = ax.contour(xgrid,ygrid, (seriebruta),cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
         
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
@@ -356,13 +352,16 @@ class mdc():
         xticklabels = ['%.1f'%aux for aux in xticks]
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])
-                     
+#        #ax.set_xscale('log')   
+#        #ax.set_yscale('log')
+        ax.set_ylim(4,20)
+             
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5,)
         
         ###############################################
         ax = fig.add_subplot(232)
-        colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'],obj_hist['zvalues'],cmap=cmap2, vmin = 0.001, vmax = 0.3,levels=levels)
+        colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'],(obj_hist['zvalues']),cmap=cmap2, vmin = 0.001, vmax = 0.3,levels=levels)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Modelo Distribuicao Conjunta\nHs ajustado em %s\nTp ajustado em %s'%(s.fHtype,s.fTtype))
@@ -371,13 +370,17 @@ class mdc():
         ax.set_xticklabels(xticklabels[::2])
         ax.set_yticks(yticks[::2])
         ax.set_yticklabels(yticklabels[::2])
-        
+#        #ax.set_xscale('log')   
+#        #ax.set_yscale('log')
+        ax.set_ylim(4,20)
         
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)
+
+        
         ######################################################
         ax = fig.add_subplot(233)
-        bias = seriebruta - obj_hist['zvalues']
+        bias = (seriebruta) - (obj_hist['zvalues'])
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'], bias,cmap=cmapbias, vmin = -0.15, vmax = 0.15,levels=levelsBias)
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
@@ -386,6 +389,11 @@ class mdc():
         ax.set_xticklabels(xticklabels[::2])
         ax.set_yticks(yticks[::2])
         ax.set_yticklabels(yticklabels[::2])
+        
+#        #ax.set_xscale('log')   
+#        #ax.set_yscale('log')
+        ax.set_ylim(4,20)
+        
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)   
         
@@ -759,8 +767,8 @@ class nataf():
         cmap2 = cm.get_cmap('jet')
         cmap2.set_under('w')
         cmapbias = cm.get_cmap('seismic')
-        levels = np.arange(0.01,0.3,0.03)
-        levelsBias = np.arange(-0.11,0.11,0.02)
+        levels = np.arange(0.001,0.3,0.01)
+        levelsBias = np.arange(-0.11,0.11,0.001)
         
         #iniciando a figura
         fig = plt.figure(figsize=(12,6))
@@ -769,8 +777,11 @@ class nataf():
         ax = fig.add_subplot(231)
         
         colbar = ax.contour(xgrid,ygrid, seriebruta,cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
+        #ax.set_xscale('log')   
+        #ax.set_yscale('log')
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
+
         ax.set_title('Histograma Densidade Probabilidade\n Serie Bruta')
         
         yticks = obj_hist['zvalues'].index.values.astype(float)
@@ -785,7 +796,8 @@ class nataf():
         
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])
-        
+#        ax.set_xlim(0.25,11.7)
+        ax.set_ylim(4,20)
         
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5,)
@@ -793,14 +805,20 @@ class nataf():
         #################################
         ax = fig.add_subplot(232)
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'],obj_hist['zvalues'],cmap=cmap2, vmin = 0.001, vmax = 0.3,levels=levels)
+        #ax.set_xscale('log')   
+        #ax.set_yscale('log')
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
+
         ax.set_title('Nataf\nHs ajustado em %s\nTp ajustado em %s'%(s.fHtype,s.fTtype))
         
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])
         ax.set_yticks(yticks[::2])
         ax.set_yticklabels(yticklabels[::2])
+#        ax.set_xlim(0.25,11.7)
+        ax.set_ylim(4,20)
+        
         
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)
@@ -809,6 +827,9 @@ class nataf():
         ax = fig.add_subplot(233)
         bias = seriebruta - obj_hist['zvalues']
         colbar = ax.contour(obj_hist['xpos'],obj_hist['ypos'], bias,cmap=cmapbias, vmin = -0.15, vmax = 0.15,levels=levelsBias)
+        #ax.set_xscale('log')   
+        ##ax.set_yscale('log')
+
         ax.set_xlabel('Hs')
         ax.set_ylabel('Tp')
         ax.set_title('Bias Brutos - MDC')
@@ -817,6 +838,9 @@ class nataf():
         ax.set_xticklabels(xticklabels[::2])
         ax.set_yticks(yticks[::2])
         ax.set_yticklabels(yticklabels[::2])
+#        ax.set_xlim(0.25,11.7)
+        ax.set_ylim(4,20)
+        
 
         ax.grid()
         fig.colorbar(colbar, shrink=0.5, aspect=5)   
@@ -1194,9 +1218,10 @@ if __name__ == '__main__':
     #%%
 #    d = m.matriz
 #    d1 = n.bruta
+    
     sys.exit(10)
     
-
+#%% EXIT
     
 
 
