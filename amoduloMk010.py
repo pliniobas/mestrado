@@ -8,25 +8,26 @@ Created on Sun Nov 19 01:21:45 2017
 from __future__ import division
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from matplotlib import cm, gridspec
+from matplotlib import cm
 from mpl_toolkits.basemap import Basemap
 import numpy as np 
 import sys
-from scipy.stats import (kurtosis,skew,norm,lognorm,
-gumbel_r,gumbel_l,dweibull,weibull_max,weibull_min,frechet_r,spearmanr,rayleigh,gamma)
+#from scipy.stats import (kurtosis,skew,norm,lognorm,
+#gumbel_r,gumbel_l,dweibull,weibull_max,weibull_min,frechet_r,spearmanr,rayleigh,gamma)
 
+from scipy.stats import norm,lognorm,weibull_min
 from scipy.special import gamma
 from scipy.optimize import root,fsolve
-from scipy.interpolate import interp1d,interp2d
-from scipy.integrate import quad,dblquad,nquad
+#from scipy.interpolate import interp1d,interp2d
+from scipy.integrate import quad,nquad
 import scipy
 #import pandas as pd
 #from sympy import *
-from math import sqrt,log,exp
+#from math import sqrt,log,exp
 import time
-from numba import jit
+#from numba import jit
 import os
-from fractions import gcd
+#from fractions import gcd
 import gc
 import pandas as pd
 #import class_ln_wei
@@ -410,7 +411,7 @@ class mdc():
         
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])
-       
+        ax.grid()
         ax.set_title(u'Secções de Hs em função de Tp')
         ax.set_xlabel(u'Secções de Tp')
         ax.set_ylabel('Densidade Probabilidade')
@@ -859,7 +860,7 @@ class nataf():
         
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])        
-        
+        ax.grid()
         ax.set_title(u'Secções de Hs em função de Tp')
         ax.set_xlabel('Pontos f(Hs,Tp)')
         ax.set_ylabel('Densidade Probabilidade')
@@ -967,14 +968,20 @@ if __name__ == '__main__':
     DirFileList = [fil for fil in os.listdir(DirName) if os.path.isfile(os.path.join(DirName, fil))]
     #%%
     
-    CtrlfileNum = 2 #o arquivo que será rodado
+    CtrlfileNum = 6 #o arquivo que será rodado
+#    CtrlfileNum = 0 #o arquivo que será rodado
+    
     print(DirFileList[CtrlfileNum]) # nome do arquivo que sera analisado
-    CtrlDirNum = 8 #numero de direções que serão divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
-    CtrlDirQuad = [4] #Quais as direcoes que serao executadas
+    
+#    sys.exit(15)
+    
+    CtrlDirNum = 1 #numero de direções que serão divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
+#    CtrlDirQuad = [1,2,3,4,5,6,7,8] #Quais as direcoes que serao executadas
+    CtrlDirQuad = [1]
     
     #controle de entrada que entrarao nas funcoes
     CtrlBinClasses = 20 #definição do numero de bins no histograma inicial
-    CtrlPolyFitGrau = 3 
+    CtrlPolyFitGrau = 1 
     CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
     CtrlRangeHs = [0,8] #Define o range de 0.1 a x para Hs
     CtrlRangeTp = [0,20] #Define o range de 0.1 a x para Tp
@@ -1031,9 +1038,10 @@ if __name__ == '__main__':
     for aux in range(16):
         temp.append(aux * 22.5)
         pass
+    temp.append(360.0)
                 
     temp2 = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
-                     'S','SSO','SO','OSO','O','ONO','NO','NNO']
+                     'S','SSO','SO','OSO','O','ONO','NO','NNO','N']
     direcaofinal = dict(zip(temp,temp2))
     
     dirInt = [] #dicionario que guarda o valor dos intervalos de direcoes. 
