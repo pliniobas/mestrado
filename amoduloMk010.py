@@ -18,6 +18,7 @@ import sys
 from scipy.stats import norm,lognorm,weibull_min
 from scipy.special import gamma
 from scipy.optimize import root,fsolve
+from scipy.optimize import curve_fit
 #from scipy.interpolate import interp1d,interp2d
 from scipy.integrate import quad,nquad
 import scipy
@@ -58,7 +59,7 @@ class mdc():
         
         
         #Criar distribuicao de H Weibull
-        Hscale,Hloc,Hshape = weibull_min.fit(H,floc = 0) #fit wei
+        Hscale,Hloc,Hshape = weibull_min.fit(H) #fit wei
         s.fwei_H = weibull_min(Hscale,Hloc,Hshape) #cria a distribuicao
         s.fwei_H_fit = 'lambda = %.4f, alpha = %.4f'%(Hscale,Hshape)
         
@@ -143,7 +144,8 @@ class mdc():
                 ln_param.append(lognorm.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição lognormal
                 #a lista contem [lamb,loc,alpha,hs_condicionador]
                 #lambw=[0],loc=[1], alpha=[2], xpos=[3]
-                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
+#                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
+                wei_param.append(weibull_min.fit(temp) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
 
                 #fazendo o print do cdf de cada tp condicionado a hs
                 if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
@@ -181,14 +183,41 @@ class mdc():
 
         
         #Criando as funcoes dos parametros de distribuicao
-        s.Tfxi = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[0] for aux in ln_param],s.polydegree))
-        s.Tflamb = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[2] for aux in ln_param],s.polydegree))
-
+#        s.Tfxi = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[0] for aux in ln_param],s.polydegree))
+#        s.Tflamb = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[2] for aux in ln_param],s.polydegree))
+#
         s.Tflambw = np.poly1d(np.polyfit([aux[3] for aux in wei_param],[aux[0] for aux in wei_param],s.polydegree))
         s.Tfalphaw = np.poly1d(np.polyfit([aux[3] for aux in wei_param],[aux[2] for aux in wei_param],s.polydegree))
+
+#%%        
         
+        #Criando as funcoes dos parametros de distribuicao
         s.dl = pd.DataFrame(ln_param)
         s.dw = pd.DataFrame(wei_param)
+        
+        s.dl.columns = "shape,loc,scale,HsBinClass".split(',')
+        s.dw.columns = "shape,loc,scale,HsBinClass".split(',')
+        
+        xdata = s.dl.loc[:,'HsBinClass'].values
+        ydata = s.dl.loc[:,'shape'].values
+#        
+#        print(s.dl)
+        #Função que define o xi = mean = shape
+#        f = lambda h,a1,a2,b: a1 + (a2 * (h ** b))
+        s.Tfxi = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
+        s.ln_func_param_xi,temp = curve_fit(s.Tfxi,xdata,ydata)
+#        
+        xdata = s.dl.loc[:,'HsBinClass'].values
+        ydata = s.dl.loc[:,'scale'].values
+        #Função que defune o lambda = sigma^2 = scale
+#        s.Tflamb = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
+        s.Tflamb = lambda h,a1,a2,b: a1 + (a2 * (h ** b))
+        s.ln_func_param_lamb,temp = curve_fit(s.Tflamb,xdata,ydata)
+
+
+#%%
+        
+        
         
         #definindo a função de distribuição de Hs
         if kwargs.has_key('tipofH'):
@@ -210,10 +239,10 @@ class mdc():
                 s.fT = lambda h: weibull_min(s.Tflambw(h),0,s.Tfalphaw(h))
                 s.fTtype = 'weibull'
             if kwargs['tipofT'] == 'lognormal':
-                s.fT = lambda h: lognorm(s.Tfxi(h),0,s.Tflamb(h))
+                s.fT = lambda h: lognorm(s.Tfxi(h,*s.ln_func_param_xi),0,s.Tflamb(h,*s.ln_func_param_lamb))
                 s.fTtype = 'lognormal'
         else:
-            s.fT = lambda h: lognorm(s.Tfxi(h),0,s.Tflamb(h))
+            s.fT = lambda h: lognorm(s.Tfxi(h,*s.ln_func_param_xi),0,s.Tflamb(h,*s.ln_func_param_lamb))
             s.fTtype = 'lognormal'
             
 
@@ -478,9 +507,9 @@ class mdc():
             pass
         
         if s.fTtype == 'lognormal':
-            ax.text(0.05,temp,u'Tfxi.coef: %s'%s.Tfxi.coef)
+            ax.text(0.05,temp,u'Tfxi.coef: %s'%s.ln_func_param_xi)
             temp -= 0.06    
-            ax.text(0.05,temp,u'Tflamb.coef %s:'%s.Tflamb.coef)
+            ax.text(0.05,temp,u'Tflamb.coef %s:'%s.ln_func_param_lamb)
             temp -= 0.06   
         pass
         
@@ -495,8 +524,8 @@ class mdc():
         
         if s.fTtype == 'lognormal':
             x = np.linspace(0,H.max(),100)
-            ax.plot(x,s.Tfxi(x),'r', label = 'fxi(h)')
-            ax.plot(x,s.Tflamb(x),'g',label = 'flambda(h)')
+            ax.plot(x,s.Tfxi(x,*s.ln_func_param_xi),'r', label = 'fxi(h)')
+            ax.plot(x,s.Tflamb(x,*s.ln_func_param_lamb),'g',label = 'flambda(h)')
             ax.plot(s.dl.iloc[:,3].values,s.dl.iloc[:,0].values,'o',color = 'r',label = 'xi')
             ax.plot(s.dl.iloc[:,3].values,s.dl.iloc[:,2].values,'o',color = 'g',label = 'lambda')
             ax.set_title('fxi(h) e flamb(h)')
@@ -549,13 +578,13 @@ class nataf():
         
         #faz o fit para os parametros de hs em distribuicao Ln e Wei
         
-        scaleH,lH,shapeH = lognorm.fit(H,floc = 0) # fit wei
-        s.fln_H = lognorm(scaleH,lH,shapeH) #cria a distribuicao
-        s.fln_H_fit = '%.4f,%.4f'%(scaleH,np.log(shapeH))
+        shapeH,lH,scaleH = lognorm.fit(H,floc = 0) 
+        s.fln_H = lognorm(shapeH,lH,scaleH) #cria a distribuicao
+        s.fln_H_fit = '%.4f,%.4f'%(shapeH,np.log(scaleH))
         
-        scaleH,lH,shapeH = weibull_min.fit(H,floc = 0) #fit wei
-        s.fwei_H = weibull_min(scaleH,lH,shapeH) #cria a distribuicao
-        s.fwei_H_fit = '%.4f,%.4f'%(scaleH,shapeH)
+        shapeH,lH,scaleH = weibull_min.fit(H) #fit wei
+        s.fwei_H = weibull_min(shapeH,lH,scaleH) #cria a distribuicao
+        s.fwei_H_fit = '%.4f,%.4f,%.4f'%(shapeH,lH,scaleH)
 ###############################################################################        
         #Trocando o fit da biblio weibull_min por wei
 #        s.fwei_H = wei()
@@ -563,16 +592,15 @@ class nataf():
 #        s.fwei_H_fit = '%.4f,%.4f'%(s.fwei_H.lambW,s.fwei_H.alphaW)
 ###############################################################################
         
-        
         #faz o fit para os parametros de hs em distribuicao Ln e Wei
         
-        scaleT,lT,shapeT = lognorm.fit(T,floc = 0)
-        s.fln_T = lognorm(scaleT,lT,shapeT) #cria a ditribuicao ln de tp
-        s.fln_T_fit = '%.4f,%.4f'%(scaleT,np.log(shapeT))
+        shapeT,lT,scaleT = lognorm.fit(T,floc = 0)
+        s.fln_T = lognorm(shapeT,lT,scaleT) #cria a ditribuicao ln de tp
+        s.fln_T_fit = '%.4f,%.4f'%(shapeT,np.log(scaleT))
         
-        scaleT,lT,shapeT = weibull_min.fit(T,floc = 0)
-        s.fwei_T = weibull_min(scaleT,lT,shapeT)
-        s.fwei_T_fit = '%.4f,%.4f'%(scaleT,shapeT)
+        shapeT,lT,scaleT = weibull_min.fit(T)
+        s.fwei_T = weibull_min(shapeT,lT,scaleT)
+        s.fwei_T_fit = '%.4f,%.4f,%.4f'%(shapeT,lT,scaleT)
         
 ###############################################################################        
 #        #Trocando o fit da biblio weibull_min por wei
@@ -862,7 +890,7 @@ class nataf():
         ax.set_xticklabels(xticklabels[::2])        
         ax.grid()
         ax.set_title(u'Secções de Hs em função de Tp')
-        ax.set_xlabel('Pontos f(Hs,Tp)')
+        ax.set_xlabel(u'Secções de Tp')
         ax.set_ylabel('Densidade Probabilidade')
         ax.legend()
         
@@ -969,7 +997,7 @@ if __name__ == '__main__':
     #%%
     
     CtrlfileNum = 6 #o arquivo que será rodado
-#    CtrlfileNum = 0 #o arquivo que será rodado
+    CtrlfileNum = 0 #o arquivo que será rodado
     
     print(DirFileList[CtrlfileNum]) # nome do arquivo que sera analisado
     
@@ -1231,9 +1259,56 @@ if __name__ == '__main__':
     
 #%% EXIT
     
+m.dl.loc[:,'shape'].values
+plt.plot(m.dl.loc[:,'HsBinClass'].values,m.dl.loc[:,'shape'].values,'o')
+plt.plot(m.dl.loc[:,'HsBinClass'].values,m.dl.loc[:,'scale'].values,'o')
 
+from scipy.optimize import curve_fit
+xdata = m.dl.loc[:,'HsBinClass'].values
+ydata = m.dl.loc[:,'shape'].values
 
+f = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
 
+cfp,temp = curve_fit(f,xdata,ydata)
+
+x = np.linspace(1,5,100)
+plt.plot(x,[f(aux,*cfp) for aux in x])
+
+f = lambda h,a1,a2,b: a1+ a2* h ** b
+
+xdata = m.dl.loc[:,'HsBinClass'].values
+ydata = m.dl.loc[:,'scale'].values
+cfp,temp = curve_fit(f,xdata,ydata)
+
+x = np.linspace(1,5,100)
+plt.plot(x,[f(aux,*cfp) for aux in x])
+
+#%%
+
+cfp
+
+f(2,cfp[0],cfp[1],cfp[2],cfp[3])
+
+f(2,*cfp)
+
+cfp
+
+np.log(np.e)
+np.exp(np.e)
+e = np.e
+e**e
+np.log10(10)
+
+#%%
+
+plt.figure()
+plt.plot(x,[np.exp(aux) for aux in x])
+plt.plot(x,[np.log(aux) for aux in x])
+plt.semilogy()
+plt.figure()
+plt.plot(x,[np.exp(aux) for aux in x])
+plt.plot(x,[np.log(aux) for aux in x])
+plt.loglog()
 #%%
     
 from scipy.stats import norm,weibull_min
