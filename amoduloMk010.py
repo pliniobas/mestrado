@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: latin-1 -*-
 """
 Created on Sun Nov 19 01:21:45 2017
 
@@ -61,7 +61,7 @@ class mdc():
         #Criar distribuicao de H Weibull
         Hscale,Hloc,Hshape = weibull_min.fit(H) #fit wei
         s.fwei_H = weibull_min(Hscale,Hloc,Hshape) #cria a distribuicao
-        s.fwei_H_fit = 'lambda = %.4f, alpha = %.4f'%(Hscale,Hshape)
+        s.fwei_H_fit = 'shape = %.4f,loc = %.4f, scale = %.4f'%(Hscale,Hloc,Hshape)
         
         
 ###############################################################################  
@@ -173,7 +173,6 @@ class mdc():
 
 
         
-        
 ###############################################################################
                 #Trocando o fit da biblio weibull_min por wei
 #                w = wei()
@@ -189,7 +188,7 @@ class mdc():
         s.Tflambw = np.poly1d(np.polyfit([aux[3] for aux in wei_param],[aux[0] for aux in wei_param],s.polydegree))
         s.Tfalphaw = np.poly1d(np.polyfit([aux[3] for aux in wei_param],[aux[2] for aux in wei_param],s.polydegree))
 
-#%%        
+  
         
         #Criando as funcoes dos parametros de distribuicao
         s.dl = pd.DataFrame(ln_param)
@@ -202,24 +201,21 @@ class mdc():
         ydata = s.dl.loc[:,'shape'].values
 #        
 #        print(s.dl)
-        #Fun√ß√£o que define o xi = mean = shape
-#        f = lambda h,a1,a2,b: a1 + (a2 * (h ** b))
+        #FunÁ„o que define o xi = sigma = shape
         s.Tfxi = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
         s.ln_func_param_xi,temp = curve_fit(s.Tfxi,xdata,ydata)
 #        
         xdata = s.dl.loc[:,'HsBinClass'].values
         ydata = s.dl.loc[:,'scale'].values
-        #Fun√ß√£o que defune o lambda = sigma^2 = scale
+        #FunÁ„o que defune o lambda = sigma^2 = scale
 #        s.Tflamb = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
         s.Tflamb = lambda h,a1,a2,b: a1 + (a2 * (h ** b))
         s.ln_func_param_lamb,temp = curve_fit(s.Tflamb,xdata,ydata)
 
 
-#%%
         
         
-        
-        #definindo a fun√ß√£o de distribui√ß√£o de Hs
+        #definindo a FunÁ„o de distribui√ß√£o de Hs
         if kwargs.has_key('tipofH'):
             if kwargs['tipofH'] == 'weibull':
                s.fH = s.fwei_H
@@ -233,7 +229,7 @@ class mdc():
             s.fHtype = 'lognormal'
             pass
         
-        #definindo a fun√ß√£o de distribui√ß√£o de Tp condicional ao Hs
+        #definindo a FunÁ„o de distribui√ß√£o de Tp condicional ao Hs
         if kwargs.has_key('tipofT'):
             if kwargs['tipofT'] == 'weibull':
                 s.fT = lambda h: weibull_min(s.Tflambw(h),0,s.Tfalphaw(h))
@@ -441,8 +437,8 @@ class mdc():
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])
         ax.grid()
-        ax.set_title(u'Sec√ß√µes de Hs em fun√ß√£o de Tp')
-        ax.set_xlabel(u'Sec√ß√µes de Tp')
+        ax.set_title(u'SecÁıes de Hs em FunÁ„o de Tp')
+        ax.set_xlabel(u'SecÁıes de Tp')
         ax.set_ylabel('Densidade Probabilidade')
         ax.legend()
 
@@ -521,13 +517,13 @@ class mdc():
             pass
         
         ax = fig.add_subplot(236)
-        
+#        s.ln_func_param_lamb = np.log(s.ln_func_param_lamb)
         if s.fTtype == 'lognormal':
             x = np.linspace(0,H.max(),100)
             ax.plot(x,s.Tfxi(x,*s.ln_func_param_xi),'r', label = 'fxi(h)')
             ax.plot(x,s.Tflamb(x,*s.ln_func_param_lamb),'g',label = 'flambda(h)')
-            ax.plot(s.dl.iloc[:,3].values,s.dl.iloc[:,0].values,'o',color = 'r',label = 'xi')
-            ax.plot(s.dl.iloc[:,3].values,s.dl.iloc[:,2].values,'o',color = 'g',label = 'lambda')
+            ax.plot(s.dl.loc[:,'HsBinClass'],s.dl.loc[:,'shape'],'o',color = 'r',label = 'xi')
+            ax.plot(s.dl.loc[:,'HsBinClass'],s.dl.loc[:,'scale'],'o',color = 'g',label = 'lambda')
             ax.set_title('fxi(h) e flamb(h)')
             ax.legend()
         else :
@@ -545,7 +541,7 @@ class mdc():
 #m = mdc()
 #m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=True)
 
-#%%
+#%%Fim
 
 # =============================================================================
 # Classe Nataf
@@ -889,8 +885,8 @@ class nataf():
         ax.set_xticks(xticks[::2])
         ax.set_xticklabels(xticklabels[::2])        
         ax.grid()
-        ax.set_title(u'Sec√ß√µes de Hs em fun√ß√£o de Tp')
-        ax.set_xlabel(u'Sec√ß√µes de Tp')
+        ax.set_title(u'SecÁıes de Hs em FunÁ„o de Tp')
+        ax.set_xlabel(u'SecÁıes de Tp')
         ax.set_ylabel('Densidade Probabilidade')
         ax.legend()
         
@@ -1003,7 +999,7 @@ if __name__ == '__main__':
     
 #    sys.exit(15)
     
-    CtrlDirNum = 1 #numero de dire√ß√µes que ser√£o divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
+    CtrlDirNum = 1 #numero de direÁıes que ser√£o divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
 #    CtrlDirQuad = [1,2,3,4,5,6,7,8] #Quais as direcoes que serao executadas
     CtrlDirQuad = [1]
     
@@ -1438,3 +1434,4 @@ print(time.clock() - t0)
 #print(time.clock() - t0)
 
 #df == df2
+np.log(m.dl.loc[:,"scale"])
