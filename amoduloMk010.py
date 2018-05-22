@@ -5,11 +5,11 @@ Created on Sun Nov 19 01:21:45 2017
 @author: Plinio Bueno Andrade Silva
 """
 
-from __future__ import division
+#from __future__ import division
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
 import numpy as np 
 import sys
 #from scipy.stats import (kurtosis,skew,norm,lognorm,
@@ -29,7 +29,7 @@ import time
 #from numba import jit
 import os
 #from fractions import gcd
-import gc
+#import gc
 import pandas as pd
 #import class_ln_wei
 #from class_ln_wei import wei
@@ -96,8 +96,12 @@ class mdc():
         s.H_hist_y,s.H_hist_x = np.histogram(H,s.bins,density = True,range = s.rangeH)
         s.H_hist_xM = s.H_hist_x[:-1] + s.H_hist_x[0:2].mean()
         
+        s.H_hist_xM2 = s.H_hist_x[:-1] + s.H_hist_x[0:2].mean()*2
+        
         s.T_hist_y,s.T_hist_x = np.histogram(T,s.bins,density = True,range = s.rangeT)
         s.T_hist_xM = s.T_hist_x[:-1] + s.T_hist_x[0:2].mean()
+        
+        s.T_hist_xM2 = s.T_hist_x[:-1] + s.T_hist_x[0:2].mean()*2
         
                 #Separando T condicional a H e calculando os parametros da distribuicao
         dft = pd.DataFrame(dict(H=H,T=T))
@@ -112,7 +116,9 @@ class mdc():
             ax = figHs.add_subplot(111)
             ax.plot(temp,s.fln_H.cdf(temp),'--',label='ln')
             ax.plot(temp,s.fwei_H.cdf(temp),':',label='wei')
-            ax.plot(s.H_hist_xM,np.cumsum(s.H_hist_y/np.sum(s.H_hist_y)),'-',label = 'raw')
+                        
+            ax.plot(s.H_hist_xM2,np.cumsum(s.H_hist_y/np.sum(s.H_hist_y)),'.',label = 'raw')
+                        
             ax.legend()
             ax.set_title('Fits de Hs com weibull ou lognormal')
         
@@ -141,11 +147,11 @@ class mdc():
             if len(temp) > 50:
                 #lista contem [xi,loc,lamb*e,posicaoX,hs_condicionador]
                 #xi = [0], loc=[1], lamb =[2], xpos = [3]
-                ln_param.append(lognorm.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuiÃ§Ã£o lognormal
+                ln_param.append(lognorm.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição lognormal
                 #a lista contem [lamb,loc,alpha,hs_condicionador]
                 #lambw=[0],loc=[1], alpha=[2], xpos=[3]
-#                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuiÃ§Ã£o weibull
-                wei_param.append(weibull_min.fit(temp) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuiÃ§Ã£o weibull
+#                wei_param.append(weibull_min.fit(temp,floc=0) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
+                wei_param.append(weibull_min.fit(temp) + tuple([s.H_hist_xM[ix]])) #acha os parametros da distribuição weibull
 
                 #fazendo o print do cdf de cada tp condicionado a hs
                 if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
@@ -156,13 +162,14 @@ class mdc():
                     
                     #print das cumulativas dos histogramas
                     temp_T_hist_y,temp_T_hist_x = np.histogram(temp,s.bins,density = True,range = s.rangeT)
-                    temp_T_hist_xM = temp_T_hist_x[:-1] + temp_T_hist_x[0:2].mean()
+                    temp_T_hist_xM = temp_T_hist_x[:-1] + temp_T_hist_x[0:2].mean()*2
                     
-                    ax.plot(temp_T_hist_xM,np.cumsum(temp_T_hist_y/np.sum(temp_T_hist_y)),'-',label='hist')
+                    ax.plot(temp_T_hist_xM,np.cumsum(temp_T_hist_y/np.sum(temp_T_hist_y)),'.',label='raw')
                                        
                     #print das cumulativas das funcoes ajustadas
                     ax.plot(x,logtemp.cdf(x),'--',label = 'ln')
                     ax.plot(x,weitemp.cdf(x),':',label = 'wei')
+#                    plt.hist(temp,s.bins,cumulative = True,histtype = 'step',density = True)
                     ax.legend()
               
                     ax.set_title("Classe de Hs %.2f"%s.H_hist_x[ix])
@@ -215,7 +222,7 @@ class mdc():
 
         
         
-        #definindo a Função de distribuiÃ§Ã£o de Hs
+        #definindo a Função de distribuição de Hs
         if kwargs.has_key('tipofH'):
             if kwargs['tipofH'] == 'weibull':
                s.fH = s.fwei_H
@@ -229,7 +236,7 @@ class mdc():
             s.fHtype = 'lognormal'
             pass
         
-        #definindo a Função de distribuiÃ§Ã£o de Tp condicional ao Hs
+        #definindo a Função de distribuição de Tp condicional ao Hs
         if kwargs.has_key('tipofT'):
             if kwargs['tipofT'] == 'weibull':
                 s.fT = lambda h: weibull_min(s.Tflambw(h),0,s.Tfalphaw(h))
@@ -426,21 +433,21 @@ class mdc():
        
         #plotando series unidas
         
-        ax = fig.add_subplot(234)
-        ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
-        ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
-        
-        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
-        temp = obj_hist['zvalues'].index.values.astype(float)
-        xticklabels = ['%.1f'%aux for aux in temp]
-        
-        ax.set_xticks(xticks[::2])
-        ax.set_xticklabels(xticklabels[::2])
-        ax.grid()
-        ax.set_title(u'Secções de Hs em Função de Tp')
-        ax.set_xlabel(u'Secções de Tp')
-        ax.set_ylabel('Densidade Probabilidade')
-        ax.legend()
+#        ax = fig.add_subplot(234)
+#        ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
+#        ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
+#        
+#        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
+#        temp = obj_hist['zvalues'].index.values.astype(float)
+#        xticklabels = ['%.1f'%aux for aux in temp]
+#        
+#        ax.set_xticks(xticks[::2])
+#        ax.set_xticklabels(xticklabels[::2])
+#        ax.grid()
+#        ax.set_title(u'Secções de Hs em Função de Tp')
+#        ax.set_xlabel(u'Secções de Tp')
+#        ax.set_ylabel('Densidade Probabilidade')
+#        ax.legend()
 
         # =============================================================================
         #  Escrevendo parametros da funcao na figura.       
@@ -619,8 +626,8 @@ class nataf():
                 s.fHtype = 'lognormal'
                 pass
         else: 
-            s.fH = s.fln_H
-            s.fHtype = 'lognormal'
+            s.fH = s.fwei_H
+            s.fHtype = 'weibull'
             pass
         
         
@@ -668,9 +675,9 @@ class nataf():
     
     def pdf(s,h,t):
         
-        uh = s.N.ppf(s.fH.cdf(h))
+        uh = s.N.ppf(s.fH.cdf(h)) #ppf (acumulada)
         if np.isinf(uh):
-            uh = 0.9999999999999999
+            uh = 0.9999999999999999 #se a acumulada for maior que 0.9999...999 ele vai renornar inf, entao eu volto pra 0.9999...999 para nao dar erro
         
         ut = s.N.ppf(s.fT.cdf(t))
         if np.isinf(ut):
@@ -874,21 +881,21 @@ class nataf():
         #plotando series unidas
         
         
-        ax = fig.add_subplot(234)
-        ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
-        ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
-        
-        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
-        temp = obj_hist['zvalues'].index.values.astype(float)
-        xticklabels = ['%.1f'%aux for aux in temp]
-        
-        ax.set_xticks(xticks[::2])
-        ax.set_xticklabels(xticklabels[::2])        
-        ax.grid()
-        ax.set_title(u'Secções de Hs em Função de Tp')
-        ax.set_xlabel(u'Secções de Tp')
-        ax.set_ylabel('Densidade Probabilidade')
-        ax.legend()
+#        ax = fig.add_subplot(234)
+#        ax.plot(seriebruta.flatten(),label = 'Serie Bruta',ls='--')
+#        ax.plot(obj_hist['zvalues'].values.flatten(),label = 'Serie Ajustada',ls=':')
+#        
+#        xticks = np.linspace(0,s.bins**2,s.bins,endpoint=False)
+#        temp = obj_hist['zvalues'].index.values.astype(float)
+#        xticklabels = ['%.1f'%aux for aux in temp]
+#        
+#        ax.set_xticks(xticks[::2])
+#        ax.set_xticklabels(xticklabels[::2])        
+#        ax.grid()
+#        ax.set_title(u'Secções de Hs em Função de Tp')
+#        ax.set_xlabel(u'Secções de Tp')
+#        ax.set_ylabel('Densidade Probabilidade')
+#        ax.legend()
         
             
         # =============================================================================
@@ -993,7 +1000,7 @@ if __name__ == '__main__':
     #%%
     
     CtrlfileNum = 6 #o arquivo que serÃ¡ rodado
-    CtrlfileNum = 0 #o arquivo que serÃ¡ rodado
+#    CtrlfileNum = 0 #o arquivo que serÃ¡ rodado
     
     print(DirFileList[CtrlfileNum]) # nome do arquivo que sera analisado
     
@@ -1004,7 +1011,7 @@ if __name__ == '__main__':
     CtrlDirQuad = [1]
     
     #controle de entrada que entrarao nas funcoes
-    CtrlBinClasses = 20 #definiÃ§Ã£o do numero de bins no histograma inicial
+    CtrlBinClasses = 20 #definição do numero de bins no histograma inicial
     CtrlPolyFitGrau = 1 
     CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
     CtrlRangeHs = [0,8] #Define o range de 0.1 a x para Hs
@@ -1026,9 +1033,9 @@ if __name__ == '__main__':
     #%% Abrindo arquivos           
     temp = 0
     try:
-        print 'abrindo arquivo: '
+        print ('abrindo arquivo: ')
         fileName =  sys.argv[1]
-        print 'fileName: ',fileName
+        print ('fileName: ',fileName)
         with open(fileName,'r') as f:
             temp = f.read()
             temp.replace('masked','nan')
@@ -1037,11 +1044,11 @@ if __name__ == '__main__':
             del(temp)
             DirFileList[CtrlfileNum] = os.path.basename(fileName) #necessario para salvar os arquivos com o nome certo. 
             DirFigures = os.path.dirname(fileName) + '/0Figuras/'
-            print 'DirFigures: ' + DirFigures
+            print ('DirFigures: ' + DirFigures)
             pass
         pass
     except:
-        print 'escolhendo o arquivo manualmente: ', (DirName+DirFileList[CtrlfileNum])
+        print ('escolhendo o arquivo manualmente: ', (DirName+DirFileList[CtrlfileNum]))
         with open(DirName+DirFileList[CtrlfileNum],'r') as f:
             filename = DirName+DirFileList[CtrlfileNum]
             temp = f.read()
@@ -1071,7 +1078,7 @@ if __name__ == '__main__':
     dirInt = [] #dicionario que guarda o valor dos intervalos de direcoes. 
     dirInt.append(None)
     
-    for ix,aux in enumerate(xrange(CtrlDirNum)):
+    for ix,aux in enumerate(range(CtrlDirNum)):
         dirI = (aux + 1) * 360/CtrlDirNum - 360/(CtrlDirNum*2) #determinando a direcao inicial
         if dirI < 0:
             dirI = dirI + 360
@@ -1209,7 +1216,7 @@ if __name__ == '__main__':
     
     
     
-#    CtrlBinClasses = 28 #definiÃ§Ã£o do numero de bins no histograma inicial
+#    CtrlBinClasses = 28 #definição do numero de bins no histograma inicial
 #    CtrlPolyFitGrau = 3 
 #    CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
 #    CtrlRangeHs = [0,H.max()*1.01] #Define o range de 0.1 a x para Hs
@@ -1339,7 +1346,7 @@ class ln():
     def lambLn(s,X):
         return np.log(X.mean()) - 0.5*s.xi**2 #esse Ã© o calculo do parametro lambda
             
-    def pdf(s,x): #funcao lognormal distribuiÃ§Ã£o
+    def pdf(s,x): #funcao lognormal distribuição
         return (1/(np.sqrt(2*np.pi)*x*s.xi))*np.exp(-0.5*(((np.log(x)-s.lamb)**2)/(s.xi**2)))
          
     def cdf(s,x):
@@ -1408,7 +1415,7 @@ y2 = [wei2.cdf(aux) for aux in x]
 
 
 
-#%% Criando valores da distribuiÃ§Ã£o ajustada para comparar com valores do scatter dos valores brutos. 
+#%% Criando valores da distribuição ajustada para comparar com valores do scatter dos valores brutos. 
 
 
 z,x = np.histogram(H,bins=CtrlBinClasses*4,range=CtrlRangeHs)
