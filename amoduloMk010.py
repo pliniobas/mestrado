@@ -5,8 +5,8 @@ Created on Sun Nov 19 01:21:45 2017
 @author: Plinio Bueno Andrade Silva
 """
 
-#from __future__ import division
-from mpl_toolkits.mplot3d import Axes3D
+from __future__ import division
+#from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
 #from mpl_toolkits.basemap import Basemap
@@ -64,6 +64,10 @@ class mdc():
         s.fwei_H_fit = 'shape = %.4f,loc = %.4f, scale = %.4f'%(Hscale,Hloc,Hshape)
         
         
+
+        
+        
+        
 ###############################################################################  
 #        #Trocando o fit da biblio weibull_min por wei
 #        s.fwei_H = wei()
@@ -106,11 +110,73 @@ class mdc():
                 #Separando T condicional a H e calculando os parametros da distribuicao
         dft = pd.DataFrame(dict(H=H,T=T))
         
-        ln_param = []
-        wei_param = []
+
         
         # se for imprimir o grafico, mostra o ajuste de Hs em lognormal e weibull
         if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+        ############################################################### figura dos extremos
+            figExtremos = plt.figure()
+            ax = figExtremos.add_subplot(111)
+            
+            #determinando o numero de coletas em 100 anos
+            A = 2920*100 #2920 coletas por ano vezes 100 anos.
+            C = len(H) #numero de coletas efetivas
+            N = (A/C) #multiplicador
+            N =  2920*100
+            
+            ### calculando com ajuste de lognormal
+            s.lnE = quad(lambda x: x * s.fln_H.pdf(x),0,100)[0] # calculando media normal
+            
+            
+            fe = lambda x,N: N*s.fln_H.cdf(x)**(N-1) * s.fln_H.pdf(x)  
+            s.lnEcentenario = quad(lambda x,N: x*fe(x,N),0,100,args=(N))[0]
+            x = np.linspace(0,int(s.lnEcentenario)*1.50,1000,endpoint=False)
+                        
+            ax.plot(x,s.fln_H.pdf(x),label = u'Distribuição Lognormal')
+            ax.plot(x,fe(x,N),label = u'Distribuição Log. Extremo')
+            ax.plot(s.lnE,s.fln_H.pdf(s.lnE),'o',label=u'Ln E = %.1f m'%s.lnE)
+            ax.plot(s.lnEcentenario,fe(s.lnEcentenario,N),'o',label=u'Ln E Hs100 = %.1f m'%s.lnEcentenario)
+                   
+            
+            ### calculando com ajuste de weibull
+            s.weiE = quad(lambda x: x * s.fwei_H.pdf(x),0,100)[0] # calculando media normal
+                        
+            fe = lambda x,N: N*s.fwei_H.cdf(x)**(N-1) * s.fwei_H.pdf(x)  
+            s.weiEcentenario = quad(lambda x,N: x*fe(x,N),0,100,args=(N))[0]
+            x = np.linspace(0,int(s.weiEcentenario)*1.50,1000,endpoint=False)
+            
+            ax.plot(x,s.fwei_H.pdf(x),label = u'Distribuição Weibull')
+            ax.plot(x,fe(x,N),label = u'Distribuição Wei. Extremo')
+            ax.plot(s.weiE,s.fwei_H.pdf(s.weiE),'o',label=u'wei E = %.1f m'%s.weiE)
+            ax.plot(s.weiEcentenario,fe(s.weiEcentenario,N),'o',label=u'Wei E Hs100 = %.1f m'%s.weiEcentenario)
+            
+            ax.hist(H,bins=15,range=(0,np.max(H)),density=True,histtype='step',label='histograma')
+            ax.legend()
+            ax.grid()
+            temp = range(1,14,2) #+ [round(s.weiEcentenario,1),round(s.lnEcentenario,1)]
+            ax.set_xticks(temp)
+#            print(temp)
+#            ax.set_xticklabels()
+            
+        ######################################################### check de weibull    
+            y = lambda x,shape,loc,scale: (shape * np.log(x-loc)) - (shape * np.log(scale))
+            y1 = lambda x,shape,loc,scale: np.log(-np.log(1 -  s.fwei_H.cdf(x)))
+            ln_x_u = lambda x,loc: np.log(x - loc)
+            Fx = lambda x: s.fwei_H.cdf(x)
+                                    
+            x = np.arange(1,15,.5)
+            
+            temp = dict(
+                x = x,
+                y = [y(aux,*s.fwei_H.args) for aux in x],
+                y1 = [y1(aux,*s.fwei_H.args) for aux in x],
+                ln_x_u = [ln_x_u(aux,s.fwei_H.args[1]) for aux in x],
+                Fx = [Fx(aux) for aux in x])
+            
+            s.dfwei = pd.DataFrame(temp)
+            s.dfwei = s.dfwei.reindex(columns = 'x,y,y1,ln_x_u,Fx'.split(','))
+            
+        ######################################################### figura ajuste Hs
             temp = np.linspace(0,max(s.H+1),20)
             figHs = plt.figure()
             ax = figHs.add_subplot(111)
@@ -121,7 +187,6 @@ class mdc():
                         
             ax.legend()
             ax.set_title('Fits de Hs com weibull ou lognormal')
-        
 
        #se for imprimir o grafico (kwargs.has_key('print_cdf')), d e dd sao as colunas e linhas do grafico
        # determina d e dd que Ã© o tamanho do grafico a ser criado ax.subplot(d,dd,ddd)
@@ -134,8 +199,13 @@ class mdc():
                 pass
             
             figlog = plt.figure(figsize=(d*2,dd*2))
+            
             x = np.linspace(s.rangeT[0],s.rangeT[1],100,endpoint = False)              
         ddd = 0 ### ddd Ã© a posicao que o grafico vai assumir na matrix definida por d e dd           
+        
+        
+        ln_param = []
+        wei_param = []
         
         #circula entre as classes de bins de hs
         for ix,aux in enumerate(s.H_hist_x): 
@@ -173,12 +243,10 @@ class mdc():
                     ax.legend()
               
                     ax.set_title("Classe de Hs %.2f"%s.H_hist_x[ix])
-                    figlog.tight_layout()                    
+                                     
                     pass
                 pass
             pass
-
-
         
 ###############################################################################
                 #Trocando o fit da biblio weibull_min por wei
@@ -186,7 +254,6 @@ class mdc():
 #                w.fit(temp)
 #                wei_param.append((w.lambW,0,w.alphaW)+ tuple([s.H_hist_xM[ix]])) 
 ###############################################################################
-
         
         #Criando as funcoes dos parametros de distribuicao
 #        s.Tfxi = np.poly1d(np.polyfit([aux[3] for aux in ln_param],[aux[0] for aux in ln_param],s.polydegree))
@@ -210,16 +277,14 @@ class mdc():
 #        print(s.dl)
         #Função que define o xi = sigma = shape
         s.Tfxi = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
-        s.ln_func_param_xi,temp = curve_fit(s.Tfxi,xdata,ydata)
+        s.ln_func_param_xi,temp = curve_fit(s.Tfxi,xdata,ydata,maxfev = 10000)
 #        
         xdata = s.dl.loc[:,'HsBinClass'].values
         ydata = s.dl.loc[:,'scale'].values
         #Função que defune o lambda = sigma^2 = scale
 #        s.Tflamb = lambda h,a1,a2,b1,b2: a1 * np.exp(-b1*h) + a2 * np.exp(-b2*h)
         s.Tflamb = lambda h,a1,a2,b: a1 + (a2 * (h ** b))
-        s.ln_func_param_lamb,temp = curve_fit(s.Tflamb,xdata,ydata)
-
-
+        s.ln_func_param_lamb,temp = curve_fit(s.Tflamb,xdata,ydata,maxfev = 10000)
         
         
         #definindo a Função de distribuição de Hs
@@ -247,6 +312,14 @@ class mdc():
         else:
             s.fT = lambda h: lognorm(s.Tfxi(h,*s.ln_func_param_xi),0,s.Tflamb(h,*s.ln_func_param_lamb))
             s.fTtype = 'lognormal'
+            
+            
+        if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+#            figlog.suptitle("Ajustes CDF de Tp em funcao das classes de Hs")
+            figlog.tight_layout()   
+            figHs.tight_layout()
+            return figHs,figlog,figExtremos
+        pass
             
 
     def pdf(s,h,t):
@@ -370,6 +443,8 @@ class mdc():
         ##############################################
         ax = fig.add_subplot(231)
         
+#        ax.hist2d(s.H, s.T, bins = s.bins, range=[s.rangeH,s.rangeT], normed=True)
+        
         colbar = ax.contour(xgrid,ygrid, (seriebruta),cmap=cmap2,vmin = 0.001, vmax = 0.3,levels=levels)
         
         ax.set_xlabel('Hs')
@@ -465,7 +540,7 @@ class mdc():
             dirI = str(kwargs['dirI'])
             dirM = str(kwargs['dirM'])
             dirF = str(kwargs['dirF'])
-            ax.text(0.05,temp,u'NÂº coletas %d || %s < %s < %s'%(len(s.H),dirI,dirM,dirF))
+            ax.text(0.05,temp,u'Nº coletas %d || %s < %s < %s'%(len(s.H),dirI,dirM,dirF))
             temp -= 0.1
         
         ax.text(0.05,temp,u'rho dados brutos = %.3f'%(scipy.stats.pearsonr(s.H,s.T)[0]))
@@ -501,11 +576,21 @@ class mdc():
             s.fln_H_fit
             ax.text(0.05,temp,u'fln_H_fit: %s'%s.fln_H_fit)
             temp -= 0.06
+            try:
+                ax.text(0.05,temp,u'E Hs100 Ln. Fit: %s'%s.lnEcentenario)
+            except:
+                pass
+            temp -= 0.06   
             pass
         
         if s.fHtype == 'weibull':
             
             ax.text(0.05,temp,u'fwei_H_fit: %s'%s.fwei_H_fit)
+            temp -= 0.06   
+            try:
+                ax.text(0.05,temp,u'E Hs100 Wei. Fit: %s'%s.weiEcentenario)
+            except:
+                pass
             temp -= 0.06   
             pass
         
@@ -517,7 +602,7 @@ class mdc():
         pass
         
         if s.fTtype == 'weibull':
-            ax.text(0.05,temp,u'Tflambw.coef %s:'%s.Tflambw.coef)
+            ax.text(0.05,temp,u'E Hs100 %s:'%s.Tflambw.coef)
             temp -= 0.06    
             ax.text(0.05,temp,u'Tfalphaw.coef %s:'%s.Tfalphaw.coef)
             temp -= 0.06   
@@ -656,6 +741,7 @@ class nataf():
         if kwargs.has_key('rangeT'):
             s.rangeT = kwargs['rangeT']
             pass
+        
                 
         #acha a rhobru, correlacao entre H e T para ser usada na pdf
         s.rhobru = scipy.stats.pearsonr(H,T)[0]
@@ -668,7 +754,47 @@ class nataf():
        
         s.phi_2 = lambda u1,u2,rhobru: (2*np.pi*np.sqrt(1-rhobru**2))**-1 * np.exp((-2*(1-rhobru**2))**-1 * (u1**2 + u2**2 - 2*rhobru*u1*u2))
         pass
-#    
+    
+        s.H_hist_y,s.H_hist_x = np.histogram(H,s.bins,density = True,range = s.rangeH)
+        s.H_hist_xM = s.H_hist_x[:-1] + s.H_hist_x[0:2].mean()
+        
+        s.H_hist_xM2 = s.H_hist_x[:-1] + s.H_hist_x[0:2].mean()*2
+        
+        s.T_hist_y,s.T_hist_x = np.histogram(T,s.bins,density = True,range = s.rangeT)
+        s.T_hist_xM = s.T_hist_x[:-1] + s.T_hist_x[0:2].mean()
+        
+        s.T_hist_xM2 = s.T_hist_x[:-1] + s.T_hist_x[0:2].mean()*2
+    
+    
+        if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+            temp = np.linspace(0,max(s.H+1),20)
+            figHs = plt.figure()
+#            figHs.suptitle('Ajuste CDF em Weibull e lognormal para Hs')
+            ax = figHs.add_subplot(111)
+            ax.plot(temp,s.fln_H.cdf(temp),'--',label='ln')
+            ax.plot(temp,s.fwei_H.cdf(temp),':',label='wei')
+                    
+            ax.plot(s.H_hist_xM2,np.cumsum(s.H_hist_y/np.sum(s.H_hist_y)),'.',label = 'raw')
+                        
+            ax.legend()
+            ax.set_title('Ajuste CDF em Weibull e lognormal para Hs')
+            
+
+        if kwargs.has_key('print_cdf') and kwargs['print_cdf'] == True:
+            temp = np.linspace(0,max(s.T+1),20)
+            figTp = plt.figure()
+#            figTp.suptitle('Ajuste CDF em Weibull e lognormal para Tp')
+            ax = figTp.add_subplot(111)
+            ax.plot(temp,s.fln_T.cdf(temp),'--',label='ln')
+            ax.plot(temp,s.fwei_T.cdf(temp),':',label='wei')
+                        
+            ax.plot(s.T_hist_xM2,np.cumsum(s.T_hist_y/np.sum(s.T_hist_y)),'.',label = 'raw')
+                        
+            ax.legend()
+            ax.set_title('Ajuste CDF em Weibull e lognormal para Tp')
+                            
+            return figHs,figTp
+        
     def rmse(s,X,Y):
         return np.sqrt(((X-Y)**2).mean())
         
@@ -1000,26 +1126,26 @@ if __name__ == '__main__':
     #%%
     
     CtrlfileNum = 6 #o arquivo que serÃ¡ rodado
-#    CtrlfileNum = 0 #o arquivo que serÃ¡ rodado
+    CtrlfileNum = 0 #o arqu1ivo que serÃ¡ rodado
     
     print(DirFileList[CtrlfileNum]) # nome do arquivo que sera analisado
     
 #    sys.exit(15)
     
-    CtrlDirNum = 1 #numero de direções que serÃ£o divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
+    CtrlDirNum = 8 #numero de direções que serÃ£o divididos os scatter. Os intervalos calculados ficam armazenados em dirInt (direcao intervalo)
 #    CtrlDirQuad = [1,2,3,4,5,6,7,8] #Quais as direcoes que serao executadas
-    CtrlDirQuad = [1]
+    CtrlDirQuad = [5]
     
     #controle de entrada que entrarao nas funcoes
     CtrlBinClasses = 20 #definição do numero de bins no histograma inicial
     CtrlPolyFitGrau = 1 
-    CtrlMinDataLen = 50 #quantidade de coletas na direcao para ser analisado
-    CtrlRangeHs = [0,8] #Define o range de 0.1 a x para Hs
+    CtrlMinDataLen = 100 #quantidade de coletas na direcao para ser analisado
+    CtrlRangeHs = [0,12] #Define o range de 0.1 a x para Hs
     CtrlRangeTp = [0,20] #Define o range de 0.1 a x para Tp
 #    CtrlDistTypeH = ['lognormal','weibull'] # ou so ['lognormal'] ou sÃ³ ['weibull']
-#    CtrlDistTypeT = ['lognormal','weibull'] # ou so ['lognormal'] ou sÃ³ ['weibull']
-    CtrlDistTypeH = ['weibull'] # ou so ['lognormal'] ou sÃ³ ['weibull']
-    CtrlDistTypeT = ['lognormal'] # ou so ['lognormal'] ou sÃ³ ['weibull']
+    CtrlDistTypeH = ['weibull'] # ou so ['lognormal'] ou sÃ³ ['weibull'] ou ['weibull','lognormal']
+#    CtrlDistTypeH = ['lognormal']
+    CtrlDistTypeT = ['lognormal'] # ou so ['lognormal'] ou sÃ³ ['weibull'] ou ['weibull','lognormal']
     CtrlPrintCDF = True
     CtrlCalcRho = True    
     
@@ -1163,6 +1289,7 @@ if __name__ == '__main__':
                 T = dHT.tp
                 
                 print('O numero de coletas eh de %d'%len(H))
+                
                 if len(H) > CtrlMinDataLen:
                     # =============================================================================
                     # Calculando e salvando mdc
@@ -1175,8 +1302,19 @@ if __name__ == '__main__':
                     filename =  DirFileList[CtrlfileNum] + '_%s_mdc_%s_%s.jpg'%(dirQuad,aux,aux2)
                     
                     m = mdc()
+
 #                    m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=True)
-                    m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=CtrlPrintCDF)
+                    
+                    figHs,figlog,figExtremos = m.fit(H,T,tipofH=aux,tipofT=aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,polydegree=CtrlPolyFitGrau,print_cdf=CtrlPrintCDF)
+                    
+                    figHs.savefig(os.path.join(dirname,filename)
+                        .replace('.jpg',"Ajustes CDF Weibull e lognormal de Hs.jpg"))
+                    figlog.savefig(os.path.join(dirname,filename)
+                        .replace('.jpg',"Ajustes CDF de Tp em funcao das classes de Hs.jpg"))
+                    figExtremos.savefig(os.path.join(dirname,filename)
+                        .replace('.jpg',"Extremos.jpg"))
+                     
+                    
                     if CtrlCalcRho:
                         m.rho()
                     fig = m.printContour(filename = DirFileList[CtrlfileNum],
@@ -1184,6 +1322,9 @@ if __name__ == '__main__':
                                          dirM = direcaofinal[dirInt[dirQuad]['dirM']],
                                          dirF = direcaofinal[dirInt[dirQuad]['dirF']])
                     fig.savefig(os.path.join(dirname,filename))
+                    
+                    dir(figHs)
+                    
                     print(time.clock() - t)
                     # =============================================================================
                     # Calculando e salvando Nataf                     
@@ -1192,13 +1333,21 @@ if __name__ == '__main__':
                     print('Nataf quadrante %d com H ajustado em %s e T ajustado em %s '%(dirQuad,aux,aux2))
                     print('O numero de coletas eh de %d'%len(H))
                     
+                    
                     dirname = os.path.dirname(FILE) +'/Dados_Hindcast/0Figuras'
                     filename =  DirFileList[CtrlfileNum] + '_%s_nat_%s_%s.jpg'%(dirQuad,aux,aux2)
 
-                    n = nataf()
-                    n.fit(H,T,tipofH = aux,tipofT = aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp)
                     
-                                       
+                    n = nataf()
+                    figHs,figTp = n.fit(H,T,tipofH = aux,tipofT = aux2,bins=CtrlBinClasses,rangeH=CtrlRangeHs,rangeT=CtrlRangeTp,print_cdf=True)
+                    
+                    
+                    figHs.savefig(os.path.join(dirname,filename)
+                        .replace('.jpg','Ajuste CDF em Weibull e lognormal para Hs.jpg'))
+                    figTp.savefig(os.path.join(dirname,filename)
+                        .replace('.jpg','Ajuste CDF em Weibull e lognormal para Tp.jpg')) 
+                               
+                    
                     if CtrlCalcRho:
                         n.rho()
                         
@@ -1254,13 +1403,73 @@ if __name__ == '__main__':
 #        p.join()
 #    
     
-    #%%
+#%%EXIT
 #    d = m.matriz
 #    d1 = n.bruta
     
     sys.exit(10)
+#%% Desenvolvendo tabela checagem de weibull
+    m = mdc()
+    m.fit(H,T,print_cdf = True)
     
-#%% EXIT
+    m.dfwei
+    m.bins
+    m.dw.HsBinClass
+    
+    #%%
+    plt.figure()
+    plt.plot(m.dfwei.x,m.dfwei.y)
+#    plt.semilogx()
+    m.dfwei.to_excel('teste.xls')    
+    
+    plt.figure()
+    plt.plot(m.dfwei.x,m.dfwei.ln_x_u)
+    
+        
+    
+#%% Desenvolvendo Extremos
+    
+#dir(m)
+#    m.fH
+#    dir(m.fwei_H)
+#    m.fwei_H.args
+#    m.fwei_H_fit
+#    
+#    c,loc,scale = m.fwei_H.args
+
+    
+    ln = lognorm(*lognorm.fit(H,floc=0))
+    fe = lambda x,N: N*ln.cdf(x)**(N-1) * ln.pdf(x)  
+    N = 2920e2
+ 
+    E = quad(lambda x,N: x*fe(x,N),0,100,args=(N))[0]
+    x = np.linspace(0,15,1000,endpoint=False)
+    plt.figure()
+    plt.plot(x,ln.pdf(x),label = u'Distribuição Lognormal')
+    plt.plot(x,fe(x,N),label = u'Distribuição Ln. Extremo')
+    plt.plot(E,fe(E,N),'o',label=u'Valor Ln Ext. Esperado')
+    plt.hist(H,bins=15,range=(0,np.max(H)),density=True,histtype='step',label='histograma')
+    plt.legend()
+    plt.grid()
+    plt.xticks(range(1,14,2) + [round(E,3)])
+    
+    wei = weibull_min(*weibull_min.fit(H))
+    fe = lambda x,N: N*wei.cdf(x)**(N-1) * wei.pdf(x)  
+    N = 2920e2
+    
+    E = quad(lambda x,N: x*fe(x,N),0,100,args=(N))[0]
+    x = np.linspace(0,15,1000,endpoint=False)
+    plt.figure()
+    plt.plot(x,wei.pdf(x),label = u'Distribuição Weibull')
+    plt.plot(x,fe(x,N),label = u'Distribuição Wei Extremo')
+    plt.plot(E,fe(E,N),'o',label=u'Valor Wei Ext. Esperado')
+    plt.hist(H,bins=15,range=(0,np.max(H)),density=True,histtype='step',label='histograma')
+    plt.legend()
+    plt.grid()
+    plt.xticks(range(1,14,2) + [round(E,3)])
+    
+ 
+#%% Desenvolvendo curvefit para funcao de Tp condicionado a Hs.
     
 m.dl.loc[:,'shape'].values
 plt.plot(m.dl.loc[:,'HsBinClass'].values,m.dl.loc[:,'shape'].values,'o')
