@@ -53,15 +53,17 @@ class mdc():
     
     def fit(s,H,T,**kwargs):
         #Criar distribuicao de H Lognormal
-        Hscale,Hloc,Hshape = lognorm.fit(H,floc = 0) # fit wei
-        s.fln_H = lognorm(Hscale,Hloc,Hshape) #cria a distribuicao
-        s.fln_H_fit = 'xi = %.4f, lambda = %.4f'%(Hscale,np.log(Hshape))
+#        Hscale,Hloc,Hshape = lognorm.fit(H,floc = 0) # fit wei
+        Hshape,Hloc,Hscale = lognorm.fit(H,floc = 0) # fit wei
+        s.fln_H = lognorm(Hshape,Hloc,Hscale) #cria a distribuicao
+        s.fln_H_fit = 'sigma = %.4f, mu = %.4f'%(Hshape,np.log(Hscale))
         
         
         #Criar distribuicao de H Weibull
-        Hscale,Hloc,Hshape = weibull_min.fit(H) #fit wei
-        s.fwei_H = weibull_min(Hscale,Hloc,Hshape) #cria a distribuicao
-        s.fwei_H_fit = 'shape = %.4f,loc = %.4f, scale = %.4f'%(Hscale,Hloc,Hshape)
+#        Hscale,Hloc,Hshape = weibull_min.fit(H) #fit wei
+        Hshape,Hloc,Hscale = weibull_min.fit(H) #fit wei
+        s.fwei_H = weibull_min(Hshape,Hloc,Hscale) #cria a distribuicao
+        s.fwei_H_fit = 'shape = %.4f,loc = %.4f, scale = %.4f'%(Hshape,Hloc,Hscale)
         
         
 
@@ -122,7 +124,7 @@ class mdc():
             A = 2920*100 #2920 coletas por ano vezes 100 anos.
             C = len(H) #numero de coletas efetivas
             N = (A/C) #multiplicador
-            N =  2920*100
+#            N =  2920*100
             
             ### calculando com ajuste de lognormal
             s.lnE = quad(lambda x: x * s.fln_H.pdf(x),0,100)[0] # calculando media normal
@@ -369,7 +371,7 @@ class mdc():
     # =============================================================================
 
     def rho(s):
-        ran = [[s.H.min(),s.H.max()],[s.T.min(),s.T.max()]]
+        ran = [[s.H.min()*.8,s.H.max()*1.2],[s.T.min()*.8,s.T.max()]]
         print('------------------------------------------')
         print('calculando media H')
         s.mh = nquad(lambda h,t: h* s.pdf(h,t),ran)[0]
@@ -377,29 +379,30 @@ class mdc():
             return 'erro no calculo de mh = %.6f'%s.mh
         print('calculando media H = %.6f'%s.mh)
         
-        print('calculando media**2 H')
-        s.m2h = nquad(lambda h,t: h** 2 * s.pdf(h,t),ran)[0]
-        print('calculando media**2 H = %.6f'%s.m2h)        
+        print('calculando variancia H')
+        s.m2h = nquad(lambda h,t: h ** 2 * s.pdf(h,t),ran)[0] - s.mh**2
+        print('calculando variancia H = %.6f'%s.m2h)  
+        
+        print('calculando desvio padrao H')
+        s.dph = np.sqrt(nquad(lambda h,t: ((h - s.mh)**2) * s.pdf(h,t),ran)[0])#desvio padrao
+        print('calculando desvio padrao H = %.6f'%s.dph)
     
         print('calculando media T')
         s.mt = nquad(lambda h,t: t * s.pdf(h,t),ran)[0]
         print('calculando media T = %.6f'%s.mt)
 
-        print('calculando media **T')
-        s.m2t = nquad(lambda h,t: t ** 2 * s.pdf(h,t),ran)[0]
-        print('calculando media **T = %.6f'%s.m2t)
+        print('calculando variancia T')
+        s.m2t = nquad(lambda h,t: t ** 2 * s.pdf(h,t),ran)[0] - s.mt **2
+        print('calculando variancia T = %.6f'%s.m2t)
                 
-        print('calculando E')
-        s.mht = nquad(lambda h,t: h * t * s.pdf(h,t),ran)[0]    
-        print('calculando mht = %.6f'%s.mht)
-        
-        print('calculando desvio padrao H')
-        s.dph = np.sqrt(s.m2h - s.mh**2) #desvio padrao
-        print('calculando desvio padrao H = %.6f'%s.dph)
-
         print('calculando desvio padrao de T')
-        s.dpt = np.sqrt(s.m2t - s.mt**2)    
+#        s.dpt2 = np.sqrt(s.m2t - s.mt**2)  
+        s.dpt = np.sqrt(nquad(lambda h,t: ((t - s.mt)**2) * s.pdf(h,t),ran)[0])
         print('calculando desvio padrao de T = %.6f'%s.dpt)
+        
+        print('calculando valor esperado E')
+        s.mht = nquad(lambda h,t: h * t * s.pdf(h,t),ran)[0]    
+        print('calculando esperado E = %.6f'%s.mht)
         
         s.rhomdc = (s.mht - s.mh*s.mt) / (s.dph * s.dpt)
         print('calculo rho terminado = ',s.rhomdc )
@@ -547,22 +550,40 @@ class mdc():
         temp -= 0.06
         
         try:
-            ax.text(0.05,temp,u'mh = %.5f'%(s.mh))
+            ax.text(0.05,temp,u'media H  = %.3f / raw %.3f'%(s.mh,H.mean()))
             temp -= 0.06
-            ax.text(0.05,temp,u'm2h = %.5f'%(s.m2h))
+            ax.text(0.05,temp,u'var H = %.3f / raw %.3f'%(s.m2h,H.var()))
             temp -= 0.06
-            ax.text(0.05,temp,u'mt = %.5f'%(s.mt))
+            ax.text(0.05,temp,u'std H = %.3f / raw %.3f'%(s.dph,H.std()))
             temp -= 0.06
-            ax.text(0.05,temp,u'm2t = %.5f'%(s.m2t))
+            ax.text(0.05,temp,u'media T = %.3f / raw %.3f'%(s.mt,T.mean()))
             temp -= 0.06
-            ax.text(0.05,temp,u'mht = %.5f'%(s.mht))
+            ax.text(0.05,temp,u'var T = %.3f / raw %.3f'%(s.m2t,T.var()))
             temp -= 0.06
-            ax.text(0.05,temp,u'dph = %.5f'%(s.dph))
+            ax.text(0.05,temp,u'std T = %.3f / raw %.3f'%(s.dpt,T.std()))
             temp -= 0.06
-            ax.text(0.05,temp,u'dpt = %.5f'%(s.dpt))
+            ax.text(0.05,temp,u'Valor funcao ajustada E = %.5f'%(s.mht))
             temp -= 0.06
-            ax.text(0.05,temp,u'rho funcao ajustada = %.5f'%(s.rhomdc))
-            temp -= 0.1    
+            ax.text(0.05,temp,u'rho funcao ajustada = %.5f / rho raw %.5f'%(s.rhomdc,scipy.stats.pearsonr(s.H,s.T)[0]))
+            temp -= 0.1  
+        
+#        try:
+#            ax.text(0.05,temp,u'mh = %.5f'%(s.mh))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'm2h = %.5f'%(s.m2h))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'mt = %.5f'%(s.mt))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'm2t = %.5f'%(s.m2t))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'mht = %.5f'%(s.mht))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'dph = %.5f'%(s.dph))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'dpt = %.5f'%(s.dpt))
+#            temp -= 0.06
+#            ax.text(0.05,temp,u'rho funcao ajustada = %.5f'%(s.rhomdc))
+#            temp -= 0.1    
         
         except:
             ax.text(0.05,temp,u'para rho rode obj.start() antes do obj.contourf()')
@@ -851,11 +872,9 @@ class nataf():
         #dfR = dfR.T
         return dict(xpos=xpos,ypos=ypos,zvalues = dfR)
         pass
-        
+      
     def rho(s):
-        ran = [[s.H.min()*0.8,s.H.max()*1.2],[s.T.min()*0.8,s.T.max()*1.2]]
-        
-       
+        ran = [[s.H.min()*.8,s.H.max()*1.2],[s.T.min()*.8,s.T.max()]]
         print('------------------------------------------')
         print('calculando media H')
         s.mh = nquad(lambda h,t: h* s.pdf(h,t),ran)[0]
@@ -863,34 +882,75 @@ class nataf():
             return 'erro no calculo de mh = %.6f'%s.mh
         print('calculando media H = %.6f'%s.mh)
         
-        print('calculando media**2 H')
-        s.m2h = nquad(lambda h,t: h** 2 * s.pdf(h,t),ran)[0]
-        print('calculando media**2 H = %.6f'%s.m2h)        
+        print('calculando variancia H')
+        s.m2h = nquad(lambda h,t: h ** 2 * s.pdf(h,t),ran)[0] - s.mh**2
+        print('calculando variancia H = %.6f'%s.m2h)  
+        
+        print('calculando desvio padrao H')
+        s.dph = np.sqrt(nquad(lambda h,t: ((h - s.mh)**2) * s.pdf(h,t),ran)[0])#desvio padrao
+        print('calculando desvio padrao H = %.6f'%s.dph)
     
         print('calculando media T')
         s.mt = nquad(lambda h,t: t * s.pdf(h,t),ran)[0]
         print('calculando media T = %.6f'%s.mt)
 
-        print('calculando media **T')
-        s.m2t = nquad(lambda h,t: t ** 2 * s.pdf(h,t),ran)[0]
-        print('calculando media **T = %.6f'%s.m2t)
+        print('calculando variancia T')
+        s.m2t = nquad(lambda h,t: t ** 2 * s.pdf(h,t),ran)[0] - s.mt **2
+        print('calculando variancia T = %.6f'%s.m2t)
                 
-        print('calculando E')
-        s.mht = nquad(lambda h,t: h * t * s.pdf(h,t),ran)[0]    
-        print('calculando mht = %.6f'%s.mht)
-        
-        print('calculando desvio padrao H')
-        s.dph = np.sqrt(s.m2h - s.mh**2) #desvio padrao
-        print('calculando desvio padrao H = %.6f'%s.dph)
-
         print('calculando desvio padrao de T')
-        s.dpt = np.sqrt(s.m2t - s.mt**2)    
+#        s.dpt2 = np.sqrt(s.m2t - s.mt**2)  
+        s.dpt = np.sqrt(nquad(lambda h,t: ((t - s.mt)**2) * s.pdf(h,t),ran)[0])
         print('calculando desvio padrao de T = %.6f'%s.dpt)
+        
+        print('calculando valor esperado E')
+        s.mht = nquad(lambda h,t: h * t * s.pdf(h,t),ran)[0]    
+        print('calculando esperado E = %.6f'%s.mht)
         
         s.rhomdc = (s.mht - s.mh*s.mt) / (s.dph * s.dpt)
         print('calculo rho terminado = ',s.rhomdc )
         print('------------------------------------------')
-        return s.rhomdc
+        return s.rhomdc      
+    
+#    def rho(s):
+#        ran = [[s.H.min()*0.8,s.H.max()*1.2],[s.T.min()*0.8,s.T.max()*1.2]]
+#        
+#       
+#        print('------------------------------------------')
+#        print('calculando media H')
+#        s.mh = nquad(lambda h,t: h* s.pdf(h,t),ran)[0]
+#        if s.H.mean() - s.mh > 1 or s.H.mean() - s.mh < -1:
+#            return 'erro no calculo de mh = %.6f'%s.mh
+#        print('calculando media H = %.6f'%s.mh)
+#        
+#        print('calculando media**2 H')
+#        s.m2h = nquad(lambda h,t: h** 2 * s.pdf(h,t),ran)[0]
+#        print('calculando media**2 H = %.6f'%s.m2h)        
+#    
+#        print('calculando media T')
+#        s.mt = nquad(lambda h,t: t * s.pdf(h,t),ran)[0]
+#        print('calculando media T = %.6f'%s.mt)
+#
+#        print('calculando media **T')
+#        s.m2t = nquad(lambda h,t: t ** 2 * s.pdf(h,t),ran)[0]
+#        print('calculando media **T = %.6f'%s.m2t)
+#                
+#        print('calculando E')
+#        s.mht = nquad(lambda h,t: h * t * s.pdf(h,t),ran)[0]    
+#        print('calculando mht = %.6f'%s.mht)
+#        
+#        print('calculando desvio padrao H')
+#        s.dph = np.sqrt(s.m2h - s.mh**2) #desvio padrao
+#        print('calculando desvio padrao H = %.6f'%s.dph)
+#
+#        print('calculando desvio padrao de T')
+#        s.dpt = np.sqrt(s.m2t - s.mt**2)    
+#        print('calculando desvio padrao de T = %.6f'%s.dpt)
+#        
+#        s.rhomdc = (s.mht - s.mh*s.mt) / (s.dph * s.dpt)
+#        print('calculo rho terminado = ',s.rhomdc )
+#        print('------------------------------------------')
+#        return s.rhomdc
 
 
     def printContour(s,**kwargs): #NATAFFFFF
@@ -1043,28 +1103,29 @@ class nataf():
             ax.text(0.05,temp,u'Nº coletas %d || %s < %s < %s'%(len(s.H),dirI,dirM,dirF))
             temp -= 0.1
         
-        ax.text(0.05,temp,u'rho dados brutos = %.3f'%(scipy.stats.pearsonr(s.H,s.T)[0]))
-        temp -= 0.06
+#        ax.text(0.05,temp,u'rho dados brutos = %.3f'%(scipy.stats.pearsonr(s.H,s.T)[0]))
+#        temp -= 0.06
         
         try:
-            ax.text(0.05,temp,u'mh = %.5f'%(s.mh))
+            ax.text(0.05,temp,u'media H  = %.3f / raw %.3f'%(s.mh,H.mean()))
             temp -= 0.06
-            ax.text(0.05,temp,u'm2h = %.5f'%(s.m2h))
+            ax.text(0.05,temp,u'var H = %.3f / raw %.3f'%(s.m2h,H.var()))
             temp -= 0.06
-            ax.text(0.05,temp,u'mt = %.5f'%(s.mt))
+            ax.text(0.05,temp,u'std H = %.3f / raw %.3f'%(s.dph,H.std()))
             temp -= 0.06
-            ax.text(0.05,temp,u'm2t = %.5f'%(s.m2t))
+            ax.text(0.05,temp,u'media T = %.3f / raw %.3f'%(s.mt,T.mean()))
             temp -= 0.06
-            ax.text(0.05,temp,u'mht = %.5f'%(s.mht))
+            ax.text(0.05,temp,u'var T = %.3f / raw %.3f'%(s.m2t,T.var()))
             temp -= 0.06
-            ax.text(0.05,temp,u'dph = %.5f'%(s.dph))
+            ax.text(0.05,temp,u'std T = %.3f / raw %.3f'%(s.dpt,T.std()))
             temp -= 0.06
-            ax.text(0.05,temp,u'dpt = %.5f'%(s.dpt))
+            ax.text(0.05,temp,u'Valor funcao ajustada E = %.5f'%(s.mht))
             temp -= 0.06
-            ax.text(0.05,temp,u'rho funcao ajustada = %.5f'%(s.rhomdc))
+            ax.text(0.05,temp,u'rho funcao ajustada = %.5f / rho raw %.5f'%(s.rhomdc,scipy.stats.pearsonr(s.H,s.T)[0]))
             temp -= 0.1    
         
         except:
+            print('algo errado aqui')
             ax.text(0.05,temp,u'para rho rode obj.start() antes do obj.contourf()')
             temp -= 0.1    
             pass
