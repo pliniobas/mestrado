@@ -197,7 +197,7 @@ class mdc():
                 dd = d
                 d += 1
                 pass
-            
+              
             figlog = plt.figure(figsize=(d*2,dd*2))
             
             x = np.linspace(s.rangeT[0],s.rangeT[1],100,endpoint = False)              
